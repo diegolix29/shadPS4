@@ -234,4 +234,48 @@ void LoadEnabledDlls(std::string_view serial) {
     }
 }
 
+namespace {
+const DllMod* FindMod(const std::vector<DllMod>& mods, std::string_view id) {
+    for (const DllMod& mod : mods) {
+        if (mod.id == id) {
+            return &mod;
+        }
+    }
+    return nullptr;
+}
+} // namespace
+
+bool IsModInstalled(std::string_view serial, std::string_view id) {
+    const auto mods = ModsFor(serial);
+    return FindMod(mods, id) != nullptr;
+}
+
+bool IsModEnabled(std::string_view serial, std::string_view id) {
+    const auto mods = ModsFor(serial);
+    const DllMod* mod = FindMod(mods, id);
+    return mod != nullptr && IsEnabled(*mod);
+}
+
+void SetModEnabled(std::string_view serial, std::string_view id, bool enabled) {
+    const auto mods = ModsFor(serial);
+    const DllMod* mod = FindMod(mods, id);
+    if (mod == nullptr) {
+        return;
+    }
+    std::error_code ec;
+    const fs::path disabled_file = mod->folder / "disabled";
+    if (enabled) {
+        fs::remove(disabled_file, ec);
+    } else if (!fs::exists(disabled_file, ec)) {
+        std::ofstream(disabled_file).close();
+    }
+    // settings.json "enabled" wins over the default, so keep it in step when it exists.
+    if (mod->choices.contains("enabled")) {
+        json choices = mod->choices;
+        choices["enabled"] = enabled;
+        std::ofstream out(mod->folder / "settings.json", std::ios::binary);
+        out << choices.dump(2);
+    }
+}
+
 } // namespace Core::DllMods

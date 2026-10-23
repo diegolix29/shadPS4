@@ -412,6 +412,12 @@ void SetHttpsDisabled(bool disabled);
 int GetP2PPort();
 void SetP2PPort(int port);
 
+// One entry of user/host_overrides.json (e.g. key "https://ss4.scej-network.jp:20443").
+// SetHostOverride with an empty target removes the entry. Written on the next global save();
+// other entries in the file are left as they are.
+std::string GetHostOverride(const std::string& key);
+void SetHostOverride(const std::string& key, const std::string& target);
+
 // Copies network/ShadNet, trophy/audio and user settings from config.toml into the in-memory
 // EmulatorSettings / UserManagement used by the NP code. Called automatically by load().
 void SyncToEmulatorSettings();

@@ -31,4 +31,10 @@ void ApplyEnvironment(std::string_view serial);
 // Loads the enabled mods' DLLs. Call once the eboot is in memory, before the game runs.
 void LoadEnabledDlls(std::string_view serial);
 
+// For the settings GUI: whether the mod with this "id" is installed for `serial`, whether it is
+// on, and switching it (creates/removes the "disabled" file and sets "enabled" in settings.json).
+bool IsModInstalled(std::string_view serial, std::string_view id);
+bool IsModEnabled(std::string_view serial, std::string_view id);
+void SetModEnabled(std::string_view serial, std::string_view id, bool enabled);
+
 } // namespace Core::DllMods

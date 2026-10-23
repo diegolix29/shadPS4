@@ -7,6 +7,7 @@
 #include <QFileDialog>
 #include <QHoverEvent>
 #include <QMessageBox>
+#include <QSignalBlocker>
 #include <SDL3/SDL.h>
 #ifdef _WIN32
 #include <Shlobj.h>
@@ -18,6 +19,7 @@
 #include "common/key_manager.h"
 #include "common/logging/log.h"
 #include "common/scm_rev.h"
+#include "core/dll_mods.h"
 #include "core/emulator_state.h"
 #include "core/libraries/audio/audioout.h"
 #include "qt_gui/compatibility_info.h"
@@ -90,6 +92,39 @@ int volume_slider_backup;
 int fps_backup;
 
 static std::vector<QString> m_physical_devices;
+
+namespace {
+// Bloodborne's online server; its host_overrides.json entry is the "Bloodborne Game Server" field.
+constexpr const char* kBloodborneServerKey = "https://ss4.scej-network.jp:20443";
+constexpr const char* kBbscSerial = "CUSA03173";
+constexpr const char* kBbscModId = "bbsc";
+
+// Rows of the "Online Preset" combo box (index 0 is "Custom": nothing is changed).
+struct OnlinePreset {
+    const char* server;
+    const char* webapi;
+    const char* bb_game_server; // empty = no redirect
+    bool bbsc;
+};
+constexpr OnlinePreset kOnlinePresets[] = {
+    {"", "", "", false}, // Custom
+    {"srv.shadps4.net:31313", "http://srv.shadps4.net:31315", "", false},
+    {"srv.shadps4.net:31313", "http://srv.shadps4.net:31315", "https://thehuntersdream.com:20443",
+     false},
+    {"play.seamlesshunt.com:31313", "http://play.seamlesshunt.com:31315",
+     "http://play.seamlesshunt.com:20443", true},
+};
+
+int DetectOnlinePreset(const QString& server, const QString& webapi, const QString& bb_server) {
+    for (int i = 1; i < static_cast<int>(std::size(kOnlinePresets)); ++i) {
+        const OnlinePreset& p = kOnlinePresets[i];
+        if (server == p.server && webapi == p.webapi && bb_server == p.bb_game_server) {
+            return i;
+        }
+    }
+    return 0;
+}
+} // namespace
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
                                std::shared_ptr<IpcClient> ipc_client, QWidget* parent,
@@ -640,6 +675,32 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 passwordEdit->setEchoMode(checked ? QLineEdit::Normal : QLineEdit::Password);
             });
         }
+    }
+
+    // Online preset: picking one fills in the servers, the Bloodborne game server and the BBSC
+    // switch. Editing any of those by hand switches the combo back to "Custom".
+    {
+        connect(ui->onlinePresetComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                [this](int index) {
+                    if (index <= 0 || index >= static_cast<int>(std::size(kOnlinePresets))) {
+                        return;
+                    }
+                    const OnlinePreset& p = kOnlinePresets[index];
+                    ui->serverLineEdit->setText(QString::fromLatin1(p.server));
+                    ui->servWebApiLineEdit->setText(QString::fromLatin1(p.webapi));
+                    ui->bbGameServerLineEdit->setText(QString::fromLatin1(p.bb_game_server));
+                    if (ui->bbscModCheckBox->isEnabled()) {
+                        ui->bbscModCheckBox->setChecked(p.bbsc);
+                    }
+                    ui->connectedNetworkCheckBox->setChecked(true);
+                });
+        auto to_custom = [this]() {
+            QSignalBlocker blocker(ui->onlinePresetComboBox);
+            ui->onlinePresetComboBox->setCurrentIndex(0);
+        };
+        connect(ui->serverLineEdit, &QLineEdit::textEdited, this, to_custom);
+        connect(ui->servWebApiLineEdit, &QLineEdit::textEdited, this, to_custom);
+        connect(ui->bbGameServerLineEdit, &QLineEdit::textEdited, this, to_custom);
     }
 
     {
@@ -1393,6 +1454,32 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->servWebApiLineEdit->setText(QString::fromStdString(Config::getShadnetWebApiServer()));
     ui->signalingInfoLineEdit->setText(QString::fromStdString(Config::getSignalingInfo()));
     ui->upnpCheckBox->setChecked(Config::IsUPnPEnabled());
+    ui->p2pPortSpinBox->setValue(Config::GetP2PPort());
+    ui->bbGameServerLineEdit->setText(
+        QString::fromStdString(Config::GetHostOverride(kBloodborneServerKey)));
+
+    // BBSC switch: only usable when the mod is installed (and it is a Windows DLL).
+#ifdef _WIN32
+    const bool bbsc_installed = Core::DllMods::IsModInstalled(kBbscSerial, kBbscModId);
+    ui->bbscModCheckBox->setEnabled(bbsc_installed);
+    ui->bbscModCheckBox->setChecked(bbsc_installed &&
+                                    Core::DllMods::IsModEnabled(kBbscSerial, kBbscModId));
+    if (!bbsc_installed) {
+        ui->bbscModCheckBox->setToolTip(
+            tr("BBSC is not installed. Copy its folder to user/mods/CUSA03173/bbsc (from the "
+               "BBSC Play download) to use this."));
+    }
+#else
+    ui->bbscModCheckBox->setVisible(false);
+    ui->bbscModCheckBox->setEnabled(false);
+#endif
+
+    {
+        QSignalBlocker blocker(ui->onlinePresetComboBox);
+        ui->onlinePresetComboBox->setCurrentIndex(DetectOnlinePreset(
+            ui->serverLineEdit->text(), ui->servWebApiLineEdit->text(),
+            ui->bbGameServerLineEdit->text()));
+    }
 
     // ShadNet per-player sign-in
     auto shadNetEnabled = Config::getShadNetEnabledStates();
@@ -1895,6 +1982,13 @@ void SettingsDialog::UpdateSettings() {
     Config::setShadnetWebApiServer(ui->servWebApiLineEdit->text().toStdString());
     Config::setSignalingInfo(ui->signalingInfoLineEdit->text().toStdString());
     Config::SetUPnPEnabled(ui->upnpCheckBox->isChecked());
+    Config::SetP2PPort(ui->p2pPortSpinBox->value());
+    // Written to user/host_overrides.json by Config::save (other entries there are kept).
+    Config::SetHostOverride(kBloodborneServerKey,
+                            ui->bbGameServerLineEdit->text().trimmed().toStdString());
+    if (ui->bbscModCheckBox->isEnabled()) {
+        Core::DllMods::SetModEnabled(kBbscSerial, kBbscModId, ui->bbscModCheckBox->isChecked());
+    }
 
     // ShadNet per-player sign-in
     {

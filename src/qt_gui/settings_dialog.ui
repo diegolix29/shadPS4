@@ -2207,39 +2207,120 @@
 																<enum>QFormLayout::FieldGrowthPolicy::AllNonFixedFieldsGrow</enum>
 															</property>
 															<item row="0" column="0">
+																<widget class="QLabel" name="onlinePresetLabel">
+																	<property name="text">
+																		<string>Online Preset</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="1">
+																<widget class="QComboBox" name="onlinePresetComboBox">
+																	<property name="toolTip">
+																		<string>Fills in the servers and the Bloodborne game server for a known online service. Your accounts below must exist on that service.</string>
+																	</property>
+																	<item>
+																		<property name="text">
+																			<string>Custom</string>
+																		</property>
+																	</item>
+																	<item>
+																		<property name="text">
+																			<string>ShadNet (official)</string>
+																		</property>
+																	</item>
+																	<item>
+																		<property name="text">
+																			<string>Bloodborne - The Hunter&apos;s Dream</string>
+																		</property>
+																	</item>
+																	<item>
+																		<property name="text">
+																			<string>Bloodborne - Seamless Co-op (Seamless Hunt)</string>
+																		</property>
+																	</item>
+																</widget>
+															</item>
+															<item row="1" column="0">
 																<widget class="QLabel" name="serverLabel">
 																	<property name="text">
 																		<string>Server</string>
 																	</property>
 																</widget>
 															</item>
-															<item row="0" column="1">
+															<item row="1" column="1">
 																<widget class="QLineEdit" name="serverLineEdit"/>
 															</item>
-															<item row="1" column="0">
+															<item row="2" column="0">
 																<widget class="QLabel" name="servWebApiLabel">
 																	<property name="text">
 																		<string>WebAPI Server</string>
 																	</property>
 																</widget>
 															</item>
-															<item row="1" column="1">
+															<item row="2" column="1">
 																<widget class="QLineEdit" name="servWebApiLineEdit"/>
 															</item>
-															<item row="2" column="0">
+															<item row="3" column="0">
 																<widget class="QLabel" name="signalingInfoLabel">
 																	<property name="text">
 																		<string>Signaling Info</string>
 																	</property>
 																</widget>
 															</item>
-															<item row="2" column="1">
+															<item row="3" column="1">
 																<widget class="QLineEdit" name="signalingInfoLineEdit"/>
 															</item>
-															<item row="3" column="0">
+															<item row="4" column="0">
+																<widget class="QLabel" name="bbGameServerLabel">
+																	<property name="text">
+																		<string>Bloodborne Game Server</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="4" column="1">
+																<widget class="QLineEdit" name="bbGameServerLineEdit">
+																	<property name="toolTip">
+																		<string>Where Bloodborne&apos;s online server (ss4.scej-network.jp:20443) is redirected. Saved to host_overrides.json. Empty = no redirect.</string>
+																	</property>
+																	<property name="placeholderText">
+																		<string>none (e.g. https://thehuntersdream.com:20443)</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="5" column="0">
+																<widget class="QLabel" name="p2pPortLabel">
+																	<property name="text">
+																		<string>P2P Port</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="5" column="1">
+																<widget class="QSpinBox" name="p2pPortSpinBox">
+																	<property name="toolTip">
+																		<string>UDP port for peer-to-peer play. 3658 is the PS4 default, 0 = any free port.</string>
+																	</property>
+																	<property name="maximum">
+																		<number>65535</number>
+																	</property>
+																</widget>
+															</item>
+															<item row="6" column="0" colspan="2">
 																<widget class="QCheckBox" name="upnpCheckBox">
+																	<property name="toolTip">
+																		<string>Ask the router to forward the P2P port automatically.</string>
+																	</property>
 																	<property name="text">
 																		<string>Enable UPNP</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="7" column="0" colspan="2">
+																<widget class="QCheckBox" name="bbscModCheckBox">
+																	<property name="toolTip">
+																		<string>Turns the BBSC mod for Bloodborne (CUSA03173) on or off. Install it in user/mods/CUSA03173/bbsc first. Windows only.</string>
+																	</property>
+																	<property name="text">
+																		<string>Enable Seamless Co-op mod (BBSC)</string>
 																	</property>
 																</widget>
 															</item>

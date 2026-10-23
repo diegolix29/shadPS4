@@ -231,6 +231,9 @@ static ConfigEntry<string> httpHostOverride("localhost");
 // Mirror of user/host_overrides.json, saved as the [HostOverrides] table in config.toml.
 // The JSON file is the master copy: it is re-read on every global load.
 static std::map<std::string, std::string> g_host_overrides;
+// Entries changed from the GUI (SetHostOverride) and not saved yet. An empty value removes the
+// entry. Only these are merged into host_overrides.json, so entries added by hand are kept.
+static std::map<std::string, std::string> g_host_override_changes;
 static std::map<std::string, std::string> CurrentHostOverrides();
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
@@ -3302,6 +3305,13 @@ static std::string HostOverrideTarget(std::string host) {
 // (or removed when `host` is empty). Entries for specific hosts are kept as they are.
 static void WriteHostOverridesJson(const std::filesystem::path& path, const std::string& host) {
     nlohmann::json j = ReadJsonObject(UserDirFile("host_overrides.json"));
+    for (const auto& [key, value] : g_host_override_changes) {
+        if (value.empty()) {
+            j.erase(key);
+        } else {
+            j[key] = value;
+        }
+    }
     const std::string target = HostOverrideTarget(host);
     if (target.empty()) {
         j.erase("*");
@@ -3390,6 +3400,14 @@ static void MirrorToJson() {
     WriteJsonIfChanged(users_path, users);
 
     WriteHostOverridesJson(UserDirFile("host_overrides.json"), httpHostOverride.base_value);
+    for (const auto& [key, value] : g_host_override_changes) {
+        if (value.empty()) {
+            g_host_overrides.erase(key);
+        } else {
+            g_host_overrides[key] = value;
+        }
+    }
+    g_host_override_changes.clear();
 }
 
 template <typename T>
@@ -3445,6 +3463,13 @@ static void ImportFromJson() {
 // g_host_overrides with the "*" entry taken from httpHostOverride (the Qt GUI field).
 static std::map<std::string, std::string> CurrentHostOverrides() {
     auto entries = g_host_overrides;
+    for (const auto& [key, value] : g_host_override_changes) {
+        if (value.empty()) {
+            entries.erase(key);
+        } else {
+            entries[key] = value;
+        }
+    }
     const std::string target = HostOverrideTarget(httpHostOverride.base_value);
     if (target.empty()) {
         entries.erase("*");
@@ -3517,6 +3542,23 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         WriteHostOverridesJson(game_file, *httpHostOverride.game_specific_value);
         SetHostOverridesEnv(game_file);
     }
+}
+
+std::string GetHostOverride(const std::string& key) {
+    if (const auto it = g_host_override_changes.find(key); it != g_host_override_changes.end()) {
+        return it->second;
+    }
+    if (const auto it = g_host_overrides.find(key); it != g_host_overrides.end()) {
+        return it->second;
+    }
+    return {};
+}
+
+void SetHostOverride(const std::string& key, const std::string& target) {
+    if (key.empty() || key == "*") {
+        return; // "*" is httpHostOverride
+    }
+    g_host_override_changes[key] = target;
 }
 
 void save(const std::filesystem::path& path, bool is_game_specific) {
