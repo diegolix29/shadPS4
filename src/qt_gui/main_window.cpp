@@ -279,12 +279,9 @@ bool MainWindow::Init() {
     }
     setWindowTitle(QString::fromStdString(window_title));
     this->show();
-    // load game list
-    LoadGameLists();
-    m_bigPicture =
-        std::make_unique<BigPictureWidget>(m_game_info, m_compat_info, m_ipc_client, nullptr, this);
-    m_hubMenu = std::make_unique<HubMenuWidget>(m_game_info, m_compat_info, m_ipc_client,
-                                                &m_window_themes, this);
+    statusBar.reset(new QStatusBar);
+    this->setStatusBar(statusBar.data());
+    statusBar->showMessage(tr("Loading games..."));
     if (Config::getEnableColorFilter()) {
         ui->playButton->installEventFilter(this);
         ui->pauseButton->installEventFilter(this);
@@ -347,15 +344,6 @@ bool MainWindow::Init() {
     CheckUpdateMain(true);
 #endif
 
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    statusBar.reset(new QStatusBar);
-    this->setStatusBar(statusBar.data());
-    // Update status bar
-    int numGames = m_game_info->m_games.size();
-    QString statusMessage = tr("Games: ") + QString::number(numGames) + " (" +
-                            QString::number(duration.count()) + "ms)";
-    statusBar->showMessage(statusMessage);
 
 #ifdef ENABLE_DISCORD_RPC
     if (Config::getEnableDiscordRPC()) {
@@ -366,6 +354,39 @@ bool MainWindow::Init() {
 #endif
     connect(m_game_cinematic_frame.get(), &GameCinematicFrame::launchGameRequested, this,
             [this](int index) { StartGameByIndex(index, {}); });
+    ApplyLastUsedStyle();
+
+    // Game folders are scanned on a worker thread once the window is up, so a big library never
+    // freezes the GUI. FinishInitWithGames runs on the UI thread when the list is ready.
+    StartInitialGameLoad(start);
+
+    return true;
+}
+
+void MainWindow::StartInitialGameLoad(std::chrono::steady_clock::time_point start) {
+    if (Config::getCompatibilityEnabled())
+        m_compat_info->LoadCompatibilityFile();
+
+    if (Config::getCheckCompatibilityOnStartup())
+        m_compat_info->UpdateCompatibilityDatabase(this);
+
+    auto* watcher = new QFutureWatcher<GameInfoClass::LoadedGames>(this);
+    connect(watcher, &QFutureWatcher<GameInfoClass::LoadedGames>::finished, this,
+            [this, watcher, start]() {
+                m_game_info->SetGames(watcher->result());
+                watcher->deleteLater();
+                PopulateGameViews();
+                FinishInitWithGames(start);
+            });
+    watcher->setFuture(GameInfoClass::LoadFromDiskAsync());
+}
+
+void MainWindow::FinishInitWithGames(std::chrono::steady_clock::time_point start) {
+    m_bigPicture =
+        std::make_unique<BigPictureWidget>(m_game_info, m_compat_info, m_ipc_client, nullptr, this);
+    m_hubMenu = std::make_unique<HubMenuWidget>(m_game_info, m_compat_info, m_ipc_client,
+                                                &m_window_themes, this);
+
     connect(
         m_bigPicture.get(), &BigPictureWidget::openModsManagerRequested, this, [this](int index) {
             if (index < 0 || index >= m_game_info->m_games.size()) {
@@ -428,7 +449,10 @@ bool MainWindow::Init() {
     }
     ApplyLastUsedStyle();
 
-    return true;
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start);
+    statusBar->showMessage(tr("Games: ") + QString::number(m_game_info->m_games.size()) + " (" +
+                           QString::number(duration.count()) + "ms)");
 }
 
 void MainWindow::onHubMenuLaunchGameRequested(int index) {
@@ -644,7 +668,7 @@ void MainWindow::toggleToolbarWidgetVisibility(bool checked) {
 }
 
 void MainWindow::restoreBigPictureFocus() {
-    if (g_MainWindow && m_bigPicture->isVisible()) {
+    if (g_MainWindow && m_bigPicture && m_bigPicture->isVisible()) {
         m_bigPicture->show();
         m_bigPicture->raise();
         m_bigPicture->activateWindow();
@@ -653,7 +677,7 @@ void MainWindow::restoreBigPictureFocus() {
 }
 
 void MainWindow::restoreHubFocus() {
-    if (g_MainWindow && m_hubMenu->isVisible()) {
+    if (g_MainWindow && m_hubMenu && m_hubMenu->isVisible()) {
         m_hubMenu->show();
         m_hubMenu->raise();
         m_hubMenu->activateWindow();
@@ -1679,7 +1703,11 @@ void MainWindow::LoadGameLists() {
         m_compat_info->UpdateCompatibilityDatabase(this);
 
     m_game_info->GetGameInfo(this);
+    PopulateGameViews();
+}
 
+// Fills the list/grid from the games already loaded; no disk access.
+void MainWindow::PopulateGameViews() {
     qDebug() << "LoadGameLists: m_zar_games size:" << m_game_info->m_zar_games.size();
 
     if (isTableList) {
@@ -1741,7 +1769,7 @@ void MainWindow::CreateConnects() {
         ApplyLastUsedStyle();
         UpdateThemeBackgrounds();
         UpdateIconBackgroundOpacity();
-        LoadGameLists();
+        PopulateGameViews();
     };
 
     connect(this, &MainWindow::WindowResized, this, &MainWindow::HandleResize);
@@ -2286,8 +2314,14 @@ void MainWindow::CreateConnects() {
         versionDialog->show();
     });
     connect(ui->bigPictureButton, &QPushButton::clicked, this,
-            [this]() { m_bigPicture->toggle(); });
-    connect(ui->hubMenuButton, &QPushButton::clicked, this, [this]() { m_hubMenu->toggle(); });
+            [this]() {
+                if (m_bigPicture)
+                    m_bigPicture->toggle();
+            });
+    connect(ui->hubMenuButton, &QPushButton::clicked, this, [this]() {
+        if (m_hubMenu)
+            m_hubMenu->toggle();
+    });
     connect(ui->cinemaButton, &QPushButton::clicked, this,
             [this]() { m_game_cinematic_frame->toggle(); });
     connect(ui->bpBootButton, &QPushButton::clicked, this, [this]() {

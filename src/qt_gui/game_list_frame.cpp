@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QDateTime>
+#include <QFileInfo>
+#include <QHash>
 #include <QToolTip>
 #include "common/config.h"
 #include "common/logging/log.h"
@@ -534,18 +537,12 @@ void GameListFrame::ResizeIcons(int iconSize) {
             Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serialStr + ".toml"));
 
         QLabel* config_label = new QLabel(image_container);
-        QPixmap configPixmap = QPixmap(":images/game_settings.png")
-                                   .scaled(iconSize / 3.8, iconSize / 3.8, Qt::KeepAspectRatio,
-                                           Qt::SmoothTransformation);
-
         QColor themeColor = QColor(90, 170, 255);
         if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
             themeColor = mw->getThemes()->textColor();
         }
-        QPainter painter(&configPixmap);
-        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-        painter.fillRect(configPixmap.rect(), themeColor);
-        painter.end();
+        const QPixmap configPixmap =
+            GameListUtils::TintedConfigIcon(static_cast<int>(iconSize / 3.8), themeColor);
 
         config_label->setPixmap(configPixmap);
         config_label->setFixedSize(configPixmap.width() + 4, configPixmap.height() + 4);
@@ -739,33 +736,41 @@ void GameListFrame::SetThemeColors(const QColor& textColor) {
 }
 
 QString GameListFrame::GetPlayTime(const std::string& serial) {
-    QString playTime;
-    const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
+    // play_time.txt is read once and kept until it changes on disk (the list asks for every
+    // game). The first line for a serial wins, as before.
+    static QHash<QString, QString> cache;
+    static QDateTime cache_mtime;
+    static qint64 cache_size = -1;
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        return playTime;
+    const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    const QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
+    const QFileInfo info(filePath);
+    if (!info.exists()) {
+        cache.clear();
+        cache_size = -1;
+        return {};
     }
 
-    while (!file.atEnd()) {
-        QByteArray line = file.readLine();
-        QString lineStr = QString::fromUtf8(line).trimmed();
+    if (info.lastModified() != cache_mtime || info.size() != cache_size) {
+        cache.clear();
+        cache_mtime = info.lastModified();
+        cache_size = info.size();
 
-        QStringList parts = lineStr.split(' ');
-        if (parts.size() >= 2) {
-            QString fileSerial = parts[0];
-            QString time = parts[1];
-
-            if (fileSerial == QString::fromStdString(serial)) {
-                playTime = time;
-                break;
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            cache_size = -1;
+            return {};
+        }
+        while (!file.atEnd()) {
+            const QString lineStr = QString::fromUtf8(file.readLine()).trimmed();
+            const QStringList parts = lineStr.split(' ');
+            if (parts.size() >= 2 && !cache.contains(parts[0])) {
+                cache.insert(parts[0], parts[1]);
             }
         }
     }
 
-    file.close();
-    return playTime;
+    return cache.value(QString::fromStdString(serial));
 }
 
 void GameListFrame::keyPressEvent(QKeyEvent* event) {

@@ -6,7 +6,11 @@
 #include <unordered_map>
 #include <QDir>
 #include <QDirIterator>
+#include <QColor>
+#include <QHash>
 #include <QImage>
+#include <QPainter>
+#include <QPixmap>
 #include <QString>
 #include "common/path_util.h"
 #include "compatibility_info.h"
@@ -34,6 +38,24 @@ struct GameInfo {
 class GameListUtils : public QObject {
     Q_OBJECT
 public:
+    // The "has custom config" badge, scaled to `size` and tinted with `color`. Built once per
+    // size/color instead of once per game. UI thread only.
+    static QPixmap TintedConfigIcon(int size, const QColor& color) {
+        static QHash<quint64, QPixmap> cache;
+        const quint64 key = (static_cast<quint64>(static_cast<quint32>(size)) << 32) | color.rgba();
+        if (const auto it = cache.constFind(key); it != cache.constEnd()) {
+            return *it;
+        }
+        QPixmap pixmap = QPixmap(":images/game_settings.png")
+                             .scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QPainter painter(&pixmap);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        painter.fillRect(pixmap.rect(), color);
+        painter.end();
+        cache.insert(key, pixmap);
+        return pixmap;
+    }
+
     static QString FormatSize(qint64 size) {
         static const QStringList suffixes = {tr("B"), tr("KB"), tr("MB"), tr("GB"), tr("TB")};
         int suffixIndex = 0;

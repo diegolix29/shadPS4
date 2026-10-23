@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <optional>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QtConcurrent>
@@ -130,4 +131,8 @@ private:
     QJsonObject m_compatibility_database;
     std::string m_shadPath;
     std::string m_selectedShadExePath;
+    // Favorites are read from QSettings (the registry on Windows) once and kept here; the game
+    // list sorts and builds call LoadFavorites for every game / comparison. SaveFavorites updates
+    // it.
+    mutable std::optional<QList<QString>> m_favorites_cache;
 };

@@ -256,18 +256,19 @@ void CompatibilityInfoClass::SavePresets(const QList<QString>& list) {
 }
 
 QList<QString> CompatibilityInfoClass::LoadFavorites() const {
-    QSettings settings("shadPS4", "Emulator");
-    const auto var = settings.value(QStringLiteral("Favorites/Keys"));
-    if (var.isValid()) {
-        return var.toStringList();
+    if (!m_favorites_cache.has_value()) {
+        QSettings settings("shadPS4", "Emulator");
+        const auto var = settings.value(QStringLiteral("Favorites/Keys"));
+        m_favorites_cache = var.isValid() ? var.toStringList() : QList<QString>{};
     }
-    return {};
+    return *m_favorites_cache;
 }
 
 void CompatibilityInfoClass::SaveFavorites(const QList<QString>& list) {
     QSettings settings("shadPS4", "Emulator");
     settings.setValue(QStringLiteral("Favorites/Keys"), list);
     settings.sync();
+    m_favorites_cache = list;
 }
 
 int CompatibilityInfoClass::LoadDisplayMode() const {

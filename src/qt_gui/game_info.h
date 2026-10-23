@@ -15,6 +15,25 @@ class GameInfoClass : public QObject {
 public:
     GameInfoClass();
     ~GameInfoClass();
+
+    // Result of scanning the game folders. Built off the UI thread by LoadFromDisk, then handed
+    // to SetGames on the UI thread.
+    struct LoadedGames {
+        QVector<GameInfo> games;
+        QVector<GameInfo> zar_games;
+    };
+
+    // Scans `dirs` for games and .zar files, reads their metadata and folder sizes and sorts
+    // them. Touches no GUI state, so it can run on any thread.
+    static LoadedGames LoadFromDisk(const std::vector<std::filesystem::path>& dirs);
+
+    // Starts LoadFromDisk on a worker thread. The future finishes when everything is loaded.
+    static QFuture<LoadedGames> LoadFromDiskAsync();
+
+    // Replaces the game lists. UI thread only.
+    void SetGames(LoadedGames loaded);
+
+    // Loads everything with a progress dialog; the UI keeps responding while it runs.
     void GetGameInfo(QWidget* parent = nullptr);
     QVector<GameInfo> m_games;
     QVector<GameInfo> m_games_backup;

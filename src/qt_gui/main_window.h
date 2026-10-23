@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include <chrono>
 #include <QActionGroup>
 #include <QDragEnterEvent>
 #include <QEasingCurve>
@@ -250,7 +251,10 @@ private:
     void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows(bool newDock);
-    void LoadGameLists();
+    void LoadGameLists();      // rescans the game folders, then PopulateGameViews
+    void PopulateGameViews();  // refills list/grid from the loaded games, no disk access
+    void StartInitialGameLoad(std::chrono::steady_clock::time_point start);
+    void FinishInitWithGames(std::chrono::steady_clock::time_point start);
     void PrintLog(QString entry, QColor textColor);
     QList<QWidget*> m_toolbarContainers;
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QProgressDialog>
+#include <QThreadPool>
 
 #include "common/path_util.h"
 #include "compatibility_info.h"
@@ -39,7 +40,11 @@ void ScanDirectoryRecursively(const QString& dir, QStringList& filePaths, int cu
     }
 }
 
-void ScanZarFiles(const QString& dir, QStringList& zarFilePaths) {
+void ScanZarFiles(const QString& dir, QStringList& zarFilePaths, int current_depth = 0) {
+    // Same depth limit as the folder scan; never walk into a game's own files.
+    if (current_depth >= max_recursion_depth || QFile::exists(dir + "/sce_sys/param.sfo")) {
+        return;
+    }
     QDir directory(dir);
     QFileInfoList entries =
         directory.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
@@ -69,7 +74,7 @@ void ScanZarFiles(const QString& dir, QStringList& zarFilePaths) {
                 continue;
             }
             // Recursively scan subdirectories for .zar files
-            ScanZarFiles(entry.absoluteFilePath(), zarFilePaths);
+            ScanZarFiles(entry.absoluteFilePath(), zarFilePaths, current_depth + 1);
         }
     }
 }
@@ -77,44 +82,64 @@ void ScanZarFiles(const QString& dir, QStringList& zarFilePaths) {
 GameInfoClass::GameInfoClass() = default;
 GameInfoClass::~GameInfoClass() = default;
 
-void GameInfoClass::GetGameInfo(QWidget* parent) {
+GameInfoClass::LoadedGames GameInfoClass::LoadFromDisk(
+    const std::vector<std::filesystem::path>& dirs) {
     QStringList filePaths;
     QStringList zarFilePaths;
-    for (const auto& installLoc : Config::getGameDirectories()) {
+    for (const auto& installLoc : dirs) {
         QString installDir;
         Common::FS::PathToQString(installDir, installLoc);
         ScanDirectoryRecursively(installDir, filePaths, 0);
         ScanZarFiles(installDir, zarFilePaths);
     }
 
-    m_games = QtConcurrent::mapped(filePaths, [&](const QString& path) {
-                  return readGameInfo(Common::FS::PathFromQString(path));
-              }).results();
+    LoadedGames loaded;
+    loaded.games = QtConcurrent::blockingMapped<QVector<GameInfo>>(
+        filePaths, [](const QString& path) { return readGameInfo(Common::FS::PathFromQString(path)); });
+    loaded.zar_games = QtConcurrent::blockingMapped<QVector<GameInfo>>(
+        zarFilePaths,
+        [](const QString& path) { return readGameInfo(Common::FS::PathFromQString(path)); });
 
-    m_zar_games = QtConcurrent::mapped(zarFilePaths, [&](const QString& path) {
-                      return readGameInfo(Common::FS::PathFromQString(path));
-                  }).results();
+    QtConcurrent::blockingMap(loaded.games, &GameListUtils::GetFolderSize);
 
+    std::sort(loaded.games.begin(), loaded.games.end(), GameInfoClass::CompareStrings);
+    std::sort(loaded.zar_games.begin(), loaded.zar_games.end(), GameInfoClass::CompareStrings);
+    return loaded;
+}
+
+QFuture<GameInfoClass::LoadedGames> GameInfoClass::LoadFromDiskAsync() {
+    // The outer task gets its own thread so the global pool stays free for the per-game work
+    // it fans out (blockingMapped / blockingMap above).
+    static QThreadPool* loader_pool = [] {
+        auto* pool = new QThreadPool();
+        pool->setMaxThreadCount(1);
+        return pool;
+    }();
+    return QtConcurrent::run(loader_pool, &GameInfoClass::LoadFromDisk,
+                             Config::getGameDirectories());
+}
+
+void GameInfoClass::SetGames(LoadedGames loaded) {
+    m_games = std::move(loaded.games);
+    m_zar_games = std::move(loaded.zar_games);
     // used to retrieve values after performing a search
     m_games_backup = m_games;
+}
 
-    // Progress bar, please be patient :)
-    QProgressDialog dialog(tr("Loading game list, please wait :3"), tr("Cancel"), 0, 0, parent);
+void GameInfoClass::GetGameInfo(QWidget* parent) {
+    // Progress bar, please be patient :) The work runs on worker threads; the dialog's event loop
+    // keeps the window painting meanwhile.
+    QProgressDialog dialog(tr("Loading game list, please wait :3"), QString(), 0, 0, parent);
     dialog.setWindowTitle(tr("Loading..."));
+    dialog.setCancelButton(nullptr);
 
-    QFutureWatcher<void> futureWatcher;
-    GameListUtils game_util;
-    bool finished = false;
-    futureWatcher.setFuture(QtConcurrent::map(m_games, game_util.GetFolderSize));
-    connect(&futureWatcher, &QFutureWatcher<void>::finished, [&]() {
-        dialog.reset();
-        std::sort(m_games.begin(), m_games.end(), GameInfoClass::CompareStrings);
-        std::sort(m_zar_games.begin(), m_zar_games.end(), GameInfoClass::CompareStrings);
-    });
-    connect(&dialog, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
-    dialog.setRange(0, m_games.size());
-    connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged, &dialog,
-            &QProgressDialog::setValue);
-
-    dialog.exec();
+    QFutureWatcher<LoadedGames> futureWatcher;
+    connect(&futureWatcher, &QFutureWatcher<LoadedGames>::finished, &dialog,
+            &QProgressDialog::reset);
+    futureWatcher.setFuture(LoadFromDiskAsync());
+    if (!futureWatcher.isFinished()) {
+        dialog.exec();
+    }
+    futureWatcher.waitForFinished();
+    SetGames(futureWatcher.result());
 }

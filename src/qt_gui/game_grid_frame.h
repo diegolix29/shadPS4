@@ -54,9 +54,11 @@ public:
     void PopulateZarList();
     bool IsValidCellSelected();
 
-    void SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m_games_, int gameCounter);
+    void SetGameConfigIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_,
+                           int gameCounter);
 
-    void SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_games_, int gameCounter);
+    void SetFavoriteIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_,
+                         int gameCounter);
 
     void SortByFavorite(QVector<GameInfo>* game_list);
 

@@ -480,7 +480,7 @@ bool GameGridFrame::IsValidCellSelected() {
     return validCellSelected;
 }
 
-void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m_games_,
+void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_,
                                       int gameCounter) {
     std::string serialStr = m_games_[gameCounter].serial;
 
@@ -488,18 +488,12 @@ void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m
         Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serialStr + ".toml"));
 
     QLabel* label = new QLabel(parentWidget);
-    QPixmap iconPixmap = QPixmap(":images/game_settings.png")
-                             .scaled(icon_size / 3.8, icon_size / 3.8, Qt::KeepAspectRatio,
-                                     Qt::SmoothTransformation);
-
     QColor themeColor = QColor(90, 170, 255); // Default fallback
     if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
         themeColor = mw->getThemes()->textColor();
     }
-    QPainter painter(&iconPixmap);
-    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    painter.fillRect(iconPixmap.rect(), themeColor);
-    painter.end();
+    const QPixmap iconPixmap =
+        GameListUtils::TintedConfigIcon(static_cast<int>(icon_size / 3.8), themeColor);
 
     label->setPixmap(iconPixmap);
     label->move(2, 2);
@@ -510,7 +504,7 @@ void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m
     label->setProperty("themeColor", themeColor);
 }
 
-void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_games_,
+void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_,
                                     int gameCounter) {
     QString serialStr = QString::fromStdString(m_games_[gameCounter].serial);
 
