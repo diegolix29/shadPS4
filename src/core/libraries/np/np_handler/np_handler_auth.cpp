@@ -70,6 +70,18 @@ void NpHandler::OnAuthReply(s32 user_id, ShadNet::CommandType /*cmd*/, u64 pkt_i
         return;
     }
 
+    // Older shadNet servers (e.g. the BBSC / Seamless Hunt server) don't implement
+    // GetAuthorizationCode and reply Invalid/Malformed. Games such as Bloodborne only need the
+    // call to succeed, so hand back a local placeholder code like the shadp2p/BBSC fork does.
+    if (error == ShadNet::ErrorType::Invalid || error == ShadNet::ErrorType::Malformed) {
+        LOG_WARNING(NpHandler,
+                    "user_id={} server does not support authorization codes (error={}); using "
+                    "a local placeholder code",
+                    user_id, static_cast<int>(error));
+        req->SetAuthorizationCode("AUTHCODE", NpAuthIssuerId);
+        return;
+    }
+
     if (error != ShadNet::ErrorType::NoError) {
         LOG_WARNING(NpHandler, "user_id={} error={}", user_id, static_cast<int>(error));
         req->SetResult(AuthErrorFromReply(error));

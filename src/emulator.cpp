@@ -35,6 +35,7 @@
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
 #include "core/emulator_state.h"
+#include "core/dll_mods.h"
 #include "core/emulator_settings.h"
 #include "core/file_format/npbind.h"
 #include "core/file_format/psf.h"
@@ -606,6 +607,11 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}", guest_eboot_path);
         std::quick_exit(0);
     }
+
+    // DLL mods (user/mods/<mod>/mod.json, e.g. BBSC) go in once the game's code is in memory,
+    // before it runs.
+    Core::DllMods::ApplyEnvironment(id);
+    Core::DllMods::LoadEnabledDlls(id);
 
     LoadSystemModules(game_info.game_serial);
 
