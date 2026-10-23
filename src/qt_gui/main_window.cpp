@@ -354,7 +354,6 @@ bool MainWindow::Init() {
 #endif
     connect(m_game_cinematic_frame.get(), &GameCinematicFrame::launchGameRequested, this,
             [this](int index) { StartGameByIndex(index, {}); });
-    ApplyLastUsedStyle();
 
     // Game folders are scanned on a worker thread once the window is up, so a big library never
     // freezes the GUI. FinishInitWithGames runs on the UI thread when the list is ready.
@@ -3666,8 +3665,12 @@ void MainWindow::ApplyLastUsedStyle() {
     if (!savedStyle.isEmpty() && QFile::exists(savedStyle)) {
         QFile file(savedStyle);
         if (file.open(QFile::ReadOnly | QFile::Text)) {
-            qApp->setStyleSheet(file.readAll());
+            const QString css = QString::fromUtf8(file.readAll());
             file.close();
+            // Setting the app-wide stylesheet re-styles every widget; skip it if unchanged.
+            if (qApp->styleSheet() != css) {
+                qApp->setStyleSheet(css);
+            }
             return; // done
         }
     }

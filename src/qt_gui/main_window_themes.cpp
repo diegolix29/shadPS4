@@ -216,7 +216,38 @@ QString GenerateDeepPurpleStylesheet(const QString& windowBg, const QString& tex
              mutedColor);
 }
 
+// While true, SetWindowTheme only computes colors and leaves the application alone.
+static bool s_theme_dry_run = false;
+static struct {
+    bool valid = false;
+    Theme theme{};
+    QString qss_path;
+    bool color_filter = false;
+    QString app_css; // qApp->styleSheet() right after the theme was applied
+} s_applied;
+
+static void AppSetStyleSheet(const QString& css) {
+    if (!s_theme_dry_run) {
+        qApp->setStyleSheet(css);
+    }
+}
+
+static void AppSetPalette(const QPalette& palette) {
+    if (!s_theme_dry_run) {
+        qApp->setPalette(palette);
+    }
+}
+
 void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QString& qssPath) {
+    // Re-applying the theme that is already on the application (Hub, Big Picture and other
+    // windows call this in their constructors) only needs the colors computed below. Setting the
+    // app-wide stylesheet/palette again would re-style every widget in the app, which takes
+    // seconds with a big game list.
+    const bool already_applied = s_applied.valid && s_applied.theme == theme &&
+                                 s_applied.qss_path == qssPath &&
+                                 s_applied.color_filter == Config::getEnableColorFilter() &&
+                                 s_applied.app_css == qApp->styleSheet();
+    s_theme_dry_run = already_applied;
     QString wBg, txt, toolBg, accent, hov, inp, border, sel, grid;
 
     auto setSearchbar = [&](QString css) {
@@ -261,11 +292,11 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         if (Config::getEnableColorFilter()) {
             QString unifiedCss =
                 GenerateUnifiedStylesheet(wBg, txt, toolBg, accent, hov, inp, border, sel, grid);
-            qApp->setStyleSheet(unifiedCss);
+            AppSetStyleSheet(unifiedCss);
         }
     }
 
-    qApp->setStyleSheet("");
+    AppSetStyleSheet("");
 
     switch (theme) {
     case Theme::Dark:
@@ -462,7 +493,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
             "QLineEdit { background-color:#141924; color:#E8ECF4; border:1px solid #232B3A; "
             "border-radius:999px; padding:6px 14px; } "
             "QLineEdit:focus { border:1px solid #7C5CFC; }");
-        qApp->setStyleSheet(
+        AppSetStyleSheet(
             GenerateDeepPurpleStylesheet(wBg, txt, toolBg, accent, hov, inp, border, "#8B94A7"));
         break;
 
@@ -481,7 +512,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
     themePalette.setColor(QPalette::Highlight, QColor(sel));
     themePalette.setColor(QPalette::HighlightedText, Qt::white);
     themePalette.setColor(QPalette::Link, QColor(accent));
-    qApp->setPalette(themePalette);
+    AppSetPalette(themePalette);
 
     QString menuCss = QString(R"(
         QMenuBar { background-color: %1; color: %2; border-bottom: 1px solid %3; }
@@ -526,18 +557,23 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
 
     QString existingCss = qApp->styleSheet();
     if (existingCss.isEmpty()) {
-        qApp->setStyleSheet(menuCss + "\n" + toolbarCss);
+        AppSetStyleSheet(menuCss + "\n" + toolbarCss);
     } else {
-        qApp->setStyleSheet(existingCss + "\n" + menuCss + "\n" + toolbarCss);
+        AppSetStyleSheet(existingCss + "\n" + menuCss + "\n" + toolbarCss);
     }
 
-    qApp->setStyleSheet(qApp->styleSheet());
+    AppSetStyleSheet(qApp->styleSheet());
 
     m_iconHoverColor = m_iconBaseColor.lighter(150);
     if (theme == Theme::Light) {
         m_iconHoverColor = QColor(80, 80, 80);
     }
     m_textColor = m_iconBaseColor;
+
+    s_theme_dry_run = false;
+    if (!already_applied) {
+        s_applied = {true, theme, qssPath, Config::getEnableColorFilter(), qApp->styleSheet()};
+    }
 }
 
 void WindowThemes::ApplyThemeToDialog(QDialog* dialog) {
