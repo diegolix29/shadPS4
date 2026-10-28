@@ -90,7 +90,7 @@ bool isDebugModule(s32 id) {
     return false;
 }
 
-bool validateModuleId(s32 id) {
+u32 validateModuleId(s32 id) {
     if ((id & 0x7fffffff) == 0) {
         return ORBIS_SYSMODULE_INVALID_ID;
     }
@@ -241,6 +241,7 @@ s32 loadModuleInternal(s32 index, s32 argc, const void* argv, s32* res_out) {
              {"libSceFreeTypeOptOl.sprx", nullptr},
              {"libSceBeisobmf.sprx", nullptr},
              {"libSceBemp2sys.sprx", nullptr},
+             {"libSceVideoNativeExtEssential.sprx", nullptr},
              {"libSceRudp.sprx", &Libraries::Rudp::RegisterLib},
              {"libSceWkFontConfig.sprx", nullptr},
              {"libScePsmKitSystem.sprx", nullptr},

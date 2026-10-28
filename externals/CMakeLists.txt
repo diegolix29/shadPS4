@@ -332,6 +332,10 @@ endif()
 add_library(minimp3 INTERFACE)
 target_include_directories(minimp3 INTERFACE minimp3)
 
+# dr_flac
+add_library(dr_flac INTERFACE)
+target_include_directories(dr_flac INTERFACE dr_flac)
+
 # ImGuiFileDialog
 add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
 target_compile_definitions(ImGuiFileDialog PRIVATE USE_STD_FILESYSTEM)
@@ -481,6 +485,7 @@ if (NOT TARGET libzstd_static)
     set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "" FORCE)
     set(ZSTD_MULTITHREAD_SUPPORT OFF CACHE BOOL "" FORCE)
     add_subdirectory(zstd/build/cmake)
+    add_library(zstd::libzstd ALIAS libzstd_static)
 endif()
 
 # ZArchive (.zar archive support)
@@ -492,7 +497,7 @@ if (NOT TARGET ZArchive::zarchive)
     )
     target_include_directories(zarchive PUBLIC zarchive/include)
     target_include_directories(zarchive PRIVATE zstd/lib)
-    target_link_libraries(zarchive PRIVATE libzstd_static)
+    target_link_libraries(zarchive PRIVATE zstd::libzstd)
     target_compile_features(zarchive PRIVATE cxx_std_20)
     add_library(ZArchive::zarchive ALIAS zarchive)
 endif()

@@ -1203,8 +1203,15 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
     } else {
         state.depth_stencil_attachment = {};
     }
+    // Without attachments the area stays at the max framebuffer size. Draws cannot pass the
+    // scissors, so bound it by them.
     if (state.num_layers == std::numeric_limits<u16>::max()) {
         state.num_layers = 1;
+        const AmdGpu::Scissor scissor = regs.GetCombinedScissor();
+        if (scissor.bottom_right_x > 0 && scissor.bottom_right_y > 0) {
+            state.width = std::min<u32>(state.width, scissor.bottom_right_x);
+            state.height = std::min<u32>(state.height, scissor.bottom_right_y);
+        }
     }
     return state;
 }

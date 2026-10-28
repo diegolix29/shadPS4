@@ -518,7 +518,7 @@ void ParseInputConfig(const std::string game_id = "") {
                     {"rightjoystick", rightjoystick_deadzone},
                     {"l2", lefttrigger_deadzone},
                     {"r2", righttrigger_deadzone},
-                };
+            };
             output_gamepad_id = output_gamepad_id == -1 ? 1 : output_gamepad_id;
 
             if (auto it = deadzone_map.find(device); it != deadzone_map.end()) {
@@ -722,6 +722,7 @@ void ToggleKeyInList(InputID input) {
 void ControllerOutput::ResetUpdate() {
     state_changed = false;
     new_button_state = false;
+    analog_source = false;
     *new_param = 0; // bruh
 }
 void ControllerOutput::AddUpdate(InputEvent event) {
@@ -747,6 +748,7 @@ void ControllerOutput::AddUpdate(InputEvent event) {
 
     } else if (axis != SDL_GAMEPAD_AXIS_INVALID) {
         *new_param = (event.active ? event.axis_value : 0) + *new_param;
+        analog_source |= event.analog_source;
     }
 }
 void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
@@ -873,6 +875,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             }
         };
         float multiplier = 1.0;
+        const bool smooth = !analog_source;
         Axis c_axis = GetAxisFromSDLAxis(axis);
         switch (c_axis) {
         case Axis::LeftX:
@@ -887,18 +890,18 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case Axis::TriggerLeft:
             ApplyDeadzone(new_param, lefttrigger_deadzone[gamepad_index]);
-            controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param), smooth);
             controller->CheckButton(0, OrbisPadButtonDataOffset::L2, *new_param > 0x20);
             return;
         case Axis::TriggerRight:
             ApplyDeadzone(new_param, righttrigger_deadzone[gamepad_index]);
-            controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param), smooth);
             controller->CheckButton(0, OrbisPadButtonDataOffset::R2, *new_param > 0x20);
             return;
         default:
             break;
         }
-        controller->Axis(c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
+        controller->Axis(c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier), smooth);
     }
 }
 
@@ -1006,6 +1009,7 @@ InputEvent BindingConnection::ProcessBinding() {
                 }
                 if (pressed_it->first.input.type == InputType::Axis) {
                     event.axis_value = pressed_it->first.axis_value;
+                    event.analog_source = true;
                 }
                 ++pressed_it;
                 break;

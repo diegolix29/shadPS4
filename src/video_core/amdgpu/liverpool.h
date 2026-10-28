@@ -19,6 +19,7 @@
 #include "common/types.h"
 #include "common/unique_function.h"
 #include "video_core/amdgpu/cb_db_extent.h"
+#include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/amdgpu/regs.h"
 
 namespace Vulkan {
@@ -61,6 +62,7 @@ struct Liverpool {
     };
 
     Regs regs{};
+    u32 index_buffer_num_indices{};
     std::array<CbDbExtent, NUM_COLOR_BUFFERS> last_cb_extent{};
     CbDbExtent last_db_extent{};
 
@@ -191,13 +193,15 @@ private:
 
     using CmdBuffer = std::pair<std::span<const u32>, std::span<const u32>>;
     CmdBuffer CopyCmdBuffers(std::span<const u32> dcb, std::span<const u32> ccb);
-    Task ProcessGraphics(std::span<const u32> dcb, std::span<const u32> ccb);
+    Task ProcessGraphics(std::span<const u32> dcb);
     Task ProcessCeUpdate(std::span<const u32> ccb);
     template <bool is_indirect = false>
     Task ProcessCompute(std::span<const u32> acb, u32 vqid);
 
     void ProcessCommands();
+    void ProcessCeQueue();
     void Process(std::stop_token stoken);
+    void HandleGetLodStats(const PM4CmdGetLodStats* get_lod);
 
     /// Restores the index base staged by a GPU-predicated DrawIndex2 (see the draw handler).
     void RestorePredicatedIndexBase();
@@ -212,26 +216,22 @@ private:
         ComputeProgram cs_state{};
     };
     std::array<GpuQueue, NumTotalQueues> mapped_queues{};
+    std::queue<Task::Handle> ce_submits;
     u32 num_mapped_queues{1u}; // GFX is always available
 
     VAddr indirect_args_addr{};
     u32 num_counter_pairs{};
     bool packet_predicated{};
     std::optional<std::pair<u32, u32>> saved_index_base{};
+    u64 pixel_counter{};
+    u32 vgt_strmout_buffer_filled_size[4]{};
 
     struct ConstantEngine {
-        void Reset() {
-            ce_count = 0;
-            de_count = 0;
-            ce_compare_count = 0;
-        }
-
         [[nodiscard]] u32 Diff() const {
             ASSERT_MSG(ce_count >= de_count, "DE counter is ahead of CE");
             return ce_count - de_count;
         }
 
-        u32 ce_compare_count{};
         u32 ce_count{};
         u32 de_count{};
         static std::array<u8, 48_KB> constants_heap;
