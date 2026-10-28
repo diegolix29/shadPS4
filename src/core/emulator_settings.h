@@ -838,6 +838,50 @@ public:
     bool IsShadNetSessionDisabled() const {
         return m_shadnet_session_disabled.load(std::memory_order_relaxed);
     }
+    SETTING_FORWARD_BOOL(m_general, TrophyPopupDisabled, trophy_popup_disabled)
+    SETTING_FORWARD(m_general, TrophyNotificationDuration, trophy_notification_duration)
+    SETTING_FORWARD(m_general, TrophyNotificationSide, trophy_notification_side)
+    SETTING_FORWARD_BOOL(m_general, ShowSplash, show_splash)
+    SETTING_FORWARD_BOOL(m_general, DiscordRPCEnabled, discord_rpc_enabled)
+    SETTING_FORWARD_BOOL(m_general, ShowFpsCounter, show_fps_counter)
+    SETTING_FORWARD(m_general, ConsoleLanguage, console_language)
+    SETTING_FORWARD(m_general, BigPictureScale, big_picture_scale)
+    SETTING_FORWARD(m_general, BigPictureFolderDepth, big_picture_folder_depth)
+    SETTING_FORWARD_BOOL(m_general, RedZonePatchingEnabled, redzone_patches)
+
+    // Network settings
+    SETTING_FORWARD_BOOL(m_network, ConnectedToNetwork, connected_to_network)
+    SETTING_FORWARD(m_network, ShadNetServer, shadnet_server)
+    std::string GetShadNetWebApiServer() const {
+        // Strip trailing slashes if exists
+        std::string url = m_network.shadnet_webapi_server.get(m_configMode);
+        while (!url.empty() && url.back() == '/') {
+            url.pop_back();
+        }
+        return url;
+    }
+    void SetShadNetWebApiServer(const std::string& v, bool is_specific = false) {
+        m_network.shadnet_webapi_server.set(v, is_specific);
+    }
+
+    SETTING_FORWARD_BOOL(m_network, UPnPEnabled, enable_upnp)
+    SETTING_FORWARD(m_network, P2PPort, p2p_port)
+    SETTING_FORWARD_BOOL(m_network, ForcedHttpsDisabled, disable_https)
+    SETTING_FORWARD_BOOL(m_network, DeviceDiscoveryEnabled, enable_device_discovery)
+
+    // Log settings
+    SETTING_FORWARD_BOOL(m_log, LogAppend, append)
+    SETTING_FORWARD_BOOL(m_log, LogEnable, enable)
+    SETTING_FORWARD(m_log, LogFilter, filter)
+    SETTING_FORWARD(m_log, LogFlushLevel, flush_level)
+    SETTING_FORWARD(m_log, LogMaxSkipDuration, max_skip_duration)
+    SETTING_FORWARD_BOOL(m_log, LogSeparate, separate)
+    SETTING_FORWARD(m_log, LogSizeLimit, size_limit)
+    SETTING_FORWARD_BOOL(m_log, LogSkipDuplicate, skip_duplicate)
+    SETTING_FORWARD_BOOL(m_log, LogSync, sync)
+#ifdef _WIN32
+    SETTING_FORWARD(m_log, LogType, type)
+#endif
 
     // Audio settings
     SETTING_FORWARD(m_audio, AudioBackend, audio_backend)
