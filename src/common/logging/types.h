@@ -140,7 +140,7 @@ enum class LogClass : u8 {
     IPC,
     NpHandler, ///< ShadNet NP handler
     ShadNet,   ///< ShadNet client
-    Count ///< Total number of logging classes
+    Count      ///< Total number of logging classes
 };
 
 } // namespace Common::Log

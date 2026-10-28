@@ -4,11 +4,11 @@
 #include <ranges>
 
 #include "common/config.h"
-#include "core/emulator_settings.h"
 #include "common/hash.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "core/debug_state.h"
+#include "core/emulator_settings.h"
 #include "shader_recompiler/backend/spirv/emit_spirv.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/recompiler.h"

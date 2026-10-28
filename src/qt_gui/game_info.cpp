@@ -94,11 +94,14 @@ GameInfoClass::LoadedGames GameInfoClass::LoadFromDisk(
     }
 
     LoadedGames loaded;
-    loaded.games = QtConcurrent::blockingMapped<QVector<GameInfo>>(
-        filePaths, [](const QString& path) { return readGameInfo(Common::FS::PathFromQString(path)); });
-    loaded.zar_games = QtConcurrent::blockingMapped<QVector<GameInfo>>(
-        zarFilePaths,
-        [](const QString& path) { return readGameInfo(Common::FS::PathFromQString(path)); });
+    loaded.games =
+        QtConcurrent::blockingMapped<QVector<GameInfo>>(filePaths, [](const QString& path) {
+            return readGameInfo(Common::FS::PathFromQString(path));
+        });
+    loaded.zar_games =
+        QtConcurrent::blockingMapped<QVector<GameInfo>>(zarFilePaths, [](const QString& path) {
+            return readGameInfo(Common::FS::PathFromQString(path));
+        });
 
     QtConcurrent::blockingMap(loaded.games, &GameListUtils::GetFolderSize);
 

@@ -251,8 +251,8 @@ private:
     void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows(bool newDock);
-    void LoadGameLists();      // rescans the game folders, then PopulateGameViews
-    void PopulateGameViews();  // refills list/grid from the loaded games, no disk access
+    void LoadGameLists();     // rescans the game folders, then PopulateGameViews
+    void PopulateGameViews(); // refills list/grid from the loaded games, no disk access
     void StartInitialGameLoad(std::chrono::steady_clock::time_point start);
     void FinishInitWithGames(std::chrono::steady_clock::time_point start);
     void PrintLog(QString entry, QColor textColor);

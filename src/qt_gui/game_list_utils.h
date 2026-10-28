@@ -4,9 +4,9 @@
 #pragma once
 
 #include <unordered_map>
+#include <QColor>
 #include <QDir>
 #include <QDirIterator>
-#include <QColor>
 #include <QHash>
 #include <QImage>
 #include <QPainter>

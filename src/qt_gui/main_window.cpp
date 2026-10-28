@@ -344,7 +344,6 @@ bool MainWindow::Init() {
     CheckUpdateMain(true);
 #endif
 
-
 #ifdef ENABLE_DISCORD_RPC
     if (Config::getEnableDiscordRPC()) {
         auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
@@ -2312,11 +2311,10 @@ void MainWindow::CreateConnects() {
                 [this]() { RefreshGameTable(); });
         versionDialog->show();
     });
-    connect(ui->bigPictureButton, &QPushButton::clicked, this,
-            [this]() {
-                if (m_bigPicture)
-                    m_bigPicture->toggle();
-            });
+    connect(ui->bigPictureButton, &QPushButton::clicked, this, [this]() {
+        if (m_bigPicture)
+            m_bigPicture->toggle();
+    });
     connect(ui->hubMenuButton, &QPushButton::clicked, this, [this]() {
         if (m_hubMenu)
             m_hubMenu->toggle();

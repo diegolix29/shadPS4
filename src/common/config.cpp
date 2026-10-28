@@ -3436,8 +3436,8 @@ static void ImportFromJson() {
     }
 
     const nlohmann::json users = ReadJsonObject(UserDirFile("users.json"));
-    if (users.contains("Users") && users["Users"].is_object() &&
-        users["Users"].contains("user") && users["Users"]["user"].is_array()) {
+    if (users.contains("Users") && users["Users"].is_object() && users["Users"].contains("user") &&
+        users["Users"]["user"].is_array()) {
         for (const auto& u : users["Users"]["user"]) {
             if (!u.is_object()) {
                 continue;

@@ -57,8 +57,7 @@ public:
     void SetGameConfigIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_,
                            int gameCounter);
 
-    void SetFavoriteIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_,
-                         int gameCounter);
+    void SetFavoriteIcon(QWidget* parentWidget, const QVector<GameInfo>& m_games_, int gameCounter);
 
     void SortByFavorite(QVector<GameInfo>* game_list);
 
