@@ -1476,9 +1476,9 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     {
         QSignalBlocker blocker(ui->onlinePresetComboBox);
-        ui->onlinePresetComboBox->setCurrentIndex(DetectOnlinePreset(
-            ui->serverLineEdit->text(), ui->servWebApiLineEdit->text(),
-            ui->bbGameServerLineEdit->text()));
+        ui->onlinePresetComboBox->setCurrentIndex(
+            DetectOnlinePreset(ui->serverLineEdit->text(), ui->servWebApiLineEdit->text(),
+                               ui->bbGameServerLineEdit->text()));
     }
 
     // ShadNet per-player sign-in

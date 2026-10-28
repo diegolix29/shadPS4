@@ -3,6 +3,7 @@ version = 1
 [[annotations]]
 path = [
     "REUSE.toml",
+    "AGENTS.md",
     "crowdin.yml",
     "CMakeSettings.json",
     "CMakeDarwinPresets.json",

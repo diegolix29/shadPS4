@@ -34,13 +34,12 @@
 #include "core/debug_state.h"
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
-#include "core/emulator_state.h"
 #include "core/dll_mods.h"
 #include "core/emulator_settings.h"
+#include "core/emulator_state.h"
 #include "core/file_format/npbind.h"
 #include "core/file_format/psf.h"
 #include "core/file_format/trp.h"
-#include "core/user_settings.h"
 #include "core/file_sys/fs.h"
 #include "core/file_sys/storage_scheduler.h"
 #include "core/libraries/disc_map/disc_map.h"
@@ -58,6 +57,7 @@
 #include "core/libraries/usbd/usbstorage.h"
 #include "core/linker.h"
 #include "core/memory.h"
+#include "core/user_settings.h"
 #include "emulator.h"
 #include "video_core/cache_storage.h"
 #include "video_core/renderdoc.h"
@@ -212,8 +212,8 @@ static std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& n
             }
         }
 
-        const auto legacy_trop = legacy_dir / fmt::format("trophy{:02d}", trophy_index) / "Xml" /
-                                 "TROP.XML";
+        const auto legacy_trop =
+            legacy_dir / fmt::format("trophy{:02d}", trophy_index) / "Xml" / "TROP.XML";
         const auto tropconf = trophy_output_dir / "Xml" / "TROPCONF.XML";
         for (const User& user : UserManagement.GetAllUsers()) {
             const auto user_trophy_file = EmulatorSettings.GetHomeDir() /

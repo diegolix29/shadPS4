@@ -51,14 +51,12 @@ json ReadJson(const fs::path& path) {
 }
 
 bool AppliesTo(const json& manifest, std::string_view serial) {
-    if (!manifest.contains("games") || !manifest["games"].is_array() ||
-        manifest["games"].empty()) {
+    if (!manifest.contains("games") || !manifest["games"].is_array() || manifest["games"].empty()) {
         return true;
     }
-    return std::any_of(manifest["games"].begin(), manifest["games"].end(),
-                       [serial](const json& g) {
-                           return g.is_string() && g.get_ref<const std::string&>() == serial;
-                       });
+    return std::any_of(manifest["games"].begin(), manifest["games"].end(), [serial](const json& g) {
+        return g.is_string() && g.get_ref<const std::string&>() == serial;
+    });
 }
 
 bool IsEnabled(const DllMod& mod) {
@@ -162,8 +160,7 @@ void SetEnv(const std::string& name, const std::string& value) {
 void ApplyEnvironment(std::string_view serial) {
     for (const DllMod& mod : ModsFor(serial)) {
         const bool on = IsEnabled(mod);
-        LOG_INFO(Loader, "DLL mods: {} {} ({})", on ? "ON " : "off", mod.name,
-                 mod.folder.string());
+        LOG_INFO(Loader, "DLL mods: {} {} ({})", on ? "ON " : "off", mod.name, mod.folder.string());
         if (!on || !mod.manifest.contains("settings") || !mod.manifest["settings"].is_array()) {
             continue;
         }
@@ -172,9 +169,9 @@ void ApplyEnvironment(std::string_view serial) {
                 continue;
             }
             const std::string id = def.value("id", "");
-            const json& value = (!id.empty() && mod.choices.contains(id)) ? mod.choices[id]
-                                                                           : def.value("default",
-                                                                                       json{});
+            const json& value = (!id.empty() && mod.choices.contains(id))
+                                    ? mod.choices[id]
+                                    : def.value("default", json{});
             const std::string text = EnvValue(value);
             if (def.value("type", "") == "text" && text.empty()) {
                 continue; // an empty text setting leaves the mod's own default
@@ -191,8 +188,7 @@ void ApplyEnvironment(std::string_view serial) {
             }
             for (const std::string& name : names) {
                 if (const char* existing = std::getenv(name.c_str()); existing != nullptr) {
-                    LOG_INFO(Loader, "DLL mods: {} kept at {} (set before start)", name,
-                             existing);
+                    LOG_INFO(Loader, "DLL mods: {} kept at {} (set before start)", name, existing);
                     continue;
                 }
                 SetEnv(name, text);
@@ -214,9 +210,9 @@ void LoadEnabledDlls(std::string_view serial) {
             }
 #ifdef _WIN32
             // The mod's own folder is searched for the DLL's dependencies too.
-            const HMODULE handle = LoadLibraryExW(
-                dll.c_str(), nullptr,
-                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+            const HMODULE handle =
+                LoadLibraryExW(dll.c_str(), nullptr,
+                               LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
             if (handle == nullptr) {
                 LOG_ERROR(Loader, "DLL mods: could not load {} (error {})", dll.string(),
                           GetLastError());

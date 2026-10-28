@@ -27,8 +27,8 @@
 #include "core/libraries/kernel/posix_error.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/net/net_kernel.h"
-#include "core/net/guest_net.h"
 #include "core/memory.h"
+#include "core/net/guest_net.h"
 #include "kernel.h"
 
 #ifdef _WIN32
