@@ -56,10 +56,10 @@ public:
     template <typename Func>
     void ForEachItemBelow(TickType tick, Func&& func) {
         static constexpr bool RETURNS_BOOL =
-            std::is_same_v<std::invoke_result<Func, ObjectType>, bool>;
-        Item* iterator = first_item;
-        while (iterator) {
-            if (static_cast<s64>(tick) - static_cast<s64>(iterator->tick) < 0) {
+            std::is_same_v<std::invoke_result_t<Func, ObjectType&>, bool>;
+        Node* it = first;
+        while (it) {
+            if (static_cast<s64>(tick) - static_cast<s64>(it->tick) < 0) {
                 return;
             }
             Item* next = iterator->next;
