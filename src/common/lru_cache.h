@@ -57,20 +57,20 @@ public:
     void ForEachItemBelow(TickType tick, Func&& func) {
         static constexpr bool RETURNS_BOOL =
             std::is_same_v<std::invoke_result_t<Func, ObjectType&>, bool>;
-        Node* it = first;
+        Item* it = first_item;
         while (it) {
             if (static_cast<s64>(tick) - static_cast<s64>(it->tick) < 0) {
                 return;
             }
-            Item* next = iterator->next;
+            Item* next = it->next;
             if constexpr (RETURNS_BOOL) {
-                if (func(iterator->obj)) {
+                if (func(it->obj)) {
                     return;
                 }
             } else {
-                func(iterator->obj);
+                func(it->obj);
             }
-            iterator = next;
+            it = next;
         }
     }
 

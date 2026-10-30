@@ -111,7 +111,7 @@ void Emulator::Shutdown() {
     }
     const auto* elf_info = Common::Singleton<Common::ElfInfo>::Instance();
     if (elf_info->initialized) {
-        UpdatePlayTime(elf_info->GameSerial());
+        UpdatePlayTime(std::string(elf_info->GameSerial()));
     }
     if (controllers) {
         controllers->Cleanup();
