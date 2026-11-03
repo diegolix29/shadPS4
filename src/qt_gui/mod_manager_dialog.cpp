@@ -69,7 +69,6 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     }
     cleanupOverlayRootIfEmpty();
 
-    QString modsRoot;
     Common::FS::PathToQString(modsRoot, Common::FS::GetUserPath(Common::FS::PathType::ModsFolder));
     modsRoot += "/" + gameSerial;
 
@@ -873,7 +872,7 @@ void ModManagerDialog::activateAll() {
             QString dst = activePath + "/" + modName;
 
             if (QDir(src).exists()) {
-                copyModToOverlayAndTrack(modName);
+                trackModFiles(modName);
 
                 if (QDir(dst).exists())
                     QDir(dst).removeRecursively();
@@ -881,6 +880,7 @@ void ModManagerDialog::activateAll() {
                 QFile::rename(src, dst);
 
                 modTracker->setModActive(modName, true);
+                updateLoadOrder(modName, true);
                 modTracker->saveToFile();
             }
         }
@@ -919,6 +919,7 @@ void ModManagerDialog::deactivateAll() {
         QFile::rename(src, dst);
 
         modTracker->setModActive(modName, false);
+        updateLoadOrder(modName, false);
         modTracker->saveToFile();
     }
 
@@ -960,7 +961,7 @@ void ModManagerDialog::activateModByName(const QString& modName) {
             return;
     }
 
-    copyModToOverlayAndTrack(modName);
+    trackModFiles(modName);
 
     if (QDir(dst).exists())
         QDir(dst).removeRecursively();
@@ -968,6 +969,7 @@ void ModManagerDialog::activateModByName(const QString& modName) {
     QFile::rename(src, dst);
 
     modTracker->setModActive(modName, true);
+    updateLoadOrder(modName, true);
     modTracker->saveToFile();
 
     scanAvailableMods();
@@ -999,6 +1001,7 @@ void ModManagerDialog::deactivateModByName(const QString& modName) {
     QFile::rename(src, dst);
 
     modTracker->setModActive(modName, false);
+    updateLoadOrder(modName, false);
     modTracker->saveToFile();
 
     scanAvailableMods();
@@ -1208,10 +1211,19 @@ void ModManagerDialog::installMod(const QString& modName) {
         return;
 }
 
-void ModManagerDialog::copyModToOverlayAndTrack(const QString& modName) {
+void ModManagerDialog::trackModFiles(const QString& modName) {
     QString src = availablePath + "/" + modName;
     if (!QDir(src).exists()) {
         return;
+    }
+
+    if (needsDvdrootPrefix(modName)) {
+        QDir modDir(src);
+        QDir().mkpath(src + "/dvdroot_ps4");
+        for (const QString& entry : modDir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
+            if (entry != "dvdroot_ps4")
+                modDir.rename(entry, "dvdroot_ps4/" + entry);
+        }
     }
 
     ModInfo modInfo;
@@ -1219,70 +1231,39 @@ void ModManagerDialog::copyModToOverlayAndTrack(const QString& modName) {
     modInfo.gameSerial = gameSerial;
     modInfo.installedAt = QDateTime::currentDateTime();
     modInfo.isActive = false;
+    modInfo.isVirtual = true;
 
     modTracker->addMod(modInfo);
 
-    QString modBackupRoot = backupsRoot + "/" + modName;
-    QDir().mkpath(modBackupRoot);
-
-    QDirIterator it(src, QDirIterator::Subdirectories);
+    QDirIterator it(src, QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
-        if (!it.fileInfo().isFile())
-            continue;
         QString rel = QDir(src).relativeFilePath(it.filePath());
 
-        if (needsDvdrootPrefix(modName)) {
-            if (!rel.startsWith("dvdroot_ps4/")) {
-                rel = "dvdroot_ps4/" + rel;
-            }
-        }
+        QString owner = findModThatContainsFile(rel);
+        if (!owner.isEmpty() && owner != modName)
+            greyedOutMods.insert(owner);
 
-        QString destPath = overlayRoot + "/" + rel;
-        QDir().mkpath(QFileInfo(destPath).absolutePath());
-
-        QString backupFile;
-        QString originalFile;
-
-        if (QFile::exists(destPath)) {
-            backupFile = modBackupRoot + "/" + rel;
-            QDir().mkpath(QFileInfo(backupFile).absolutePath());
-
-            if (QFile::exists(backupFile)) {
-                QString stamped =
-                    backupFile + "." + QString::number(QDateTime::currentSecsSinceEpoch());
-                QFile::rename(backupFile, stamped);
-            }
-
-            if (QFile::copy(destPath, backupFile)) {
-            } else {
-            }
-        }
-
-        originalFile = resolveOriginalFile(rel);
-
-        if (QFile::exists(destPath)) {
-            QString owner = findModThatContainsFile(rel);
-            if (!owner.isEmpty() && owner != modName) {
-                greyedOutMods.insert(owner);
-                updateModDisplay();
-            }
-        }
-
-        if (QFile::exists(destPath))
-            QFile::remove(destPath);
-
-        if (!QFile::copy(it.filePath(), destPath)) {
-        }
-
-        modTracker->addFileToMod(modName, rel, originalFile, backupFile);
+        modTracker->addFileToMod(modName, rel, QString());
     }
 
     modTracker->saveToFile();
+}
 
-    if (!QDir(overlayRoot).exists()) {
-        QDir().mkpath(overlayRoot);
+void ModManagerDialog::updateLoadOrder(const QString& modName, bool active) {
+    QFile file(modsRoot + "/load_order.txt");
+    QStringList order;
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        order = QString::fromUtf8(file.readAll()).split('\n', Qt::SkipEmptyParts);
+        file.close();
     }
+
+    order.removeAll(modName);
+    if (active)
+        order.append(modName);
+
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+        file.write((order.join('\n') + '\n').toUtf8());
 }
 
 void ModManagerDialog::uninstallMod(const QString& modName) {
@@ -1598,6 +1579,9 @@ bool ModManagerDialog::showScrollableConflictDialog(const QString& text) {
 void ModManagerDialog::restoreMod(const QString& modName) {
 
     ModInfo modInfo = modTracker->getMod(modName);
+    if (modInfo.isVirtual)
+        return;
+
     if (modInfo.name.isEmpty()) {
 
         QString modBackupRoot = backupsRoot + "/" + modName;
@@ -1679,7 +1663,8 @@ void ModManagerDialog::restoreMod(const QString& modName) {
         QList<ModInfo> allActiveMods = modTracker->getActiveMods();
 
         for (const ModInfo& otherMod : allActiveMods) {
-            if (otherMod.name != modName && otherMod.files.contains(relativePath)) {
+            if (otherMod.name != modName && !otherMod.isVirtual &&
+                otherMod.files.contains(relativePath)) {
                 otherModsNeedingFile.append(otherMod.name);
             }
         }

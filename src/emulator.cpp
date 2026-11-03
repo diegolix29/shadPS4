@@ -243,6 +243,43 @@ static std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& n
     return trophy_index_map;
 }
 
+static std::vector<std::filesystem::path> GetActiveModFolders(const std::string& serial) {
+    const auto mods_root = Common::FS::GetUserPath(Common::FS::PathType::ModsFolder) / serial;
+    const auto active_dir = mods_root / "Active";
+
+    std::error_code ec;
+    std::set<std::string> unordered;
+    for (const auto& entry : std::filesystem::directory_iterator(active_dir, ec)) {
+        if (entry.is_directory(ec)) {
+            unordered.insert(Common::FS::PathToUTF8String(entry.path().filename()));
+        }
+    }
+
+    std::vector<std::string> ordered;
+    std::ifstream order_file(mods_root / "load_order.txt");
+    std::string line;
+    while (std::getline(order_file, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (unordered.erase(line) > 0) {
+            ordered.push_back(line);
+        }
+    }
+
+    const auto to_path = [&](const std::string& name) {
+        return active_dir / std::u8string{name.begin(), name.end()};
+    };
+    std::vector<std::filesystem::path> folders;
+    for (const auto& name : unordered) {
+        folders.push_back(to_path(name));
+    }
+    for (const auto& name : ordered) {
+        folders.push_back(to_path(name));
+    }
+    return folders;
+}
+
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
                    std::optional<std::filesystem::path> p_game_folder) {
     Common::SetCurrentThreadName("shadPS4:Main");
@@ -374,6 +411,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
                 sdk_version = std::stoi(sdk_ver_string, nullptr, 16);
             }
         }
+    }
+
+    if (!id.empty() && FileSys::MntPoints::enable_mods) {
+        mnt->MountMods(GetActiveModFolders(id));
     }
 
     Core::FileSys::GetApp0StorageScheduler().Configure(Config::getApp0ReadBandwidthMibps());

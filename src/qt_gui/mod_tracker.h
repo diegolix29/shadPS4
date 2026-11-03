@@ -29,6 +29,7 @@ struct ModInfo {
     QDateTime installedAt;
     QDateTime lastActivated;
     bool isActive;
+    bool isVirtual{false};
     QSet<QString> files;
     QMap<QString, ModFileInfo> fileDetails;
     QSet<QString> conflicts;

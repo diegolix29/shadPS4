@@ -99,7 +99,8 @@ private:
     void scanActiveMods();
     void installMod(const QString& modName);
     void uninstallMod(const QString& modName);
-    void copyModToOverlayAndTrack(const QString& modName);
+    void trackModFiles(const QString& modName);
+    void updateLoadOrder(const QString& modName, bool active);
     void cleanupEmptyDirectories(const QString& path);
     bool modMatchesGame(const std::filesystem::path& modPath) const;
     QString findModThatContainsFile(const QString& relPath) const;

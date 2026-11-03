@@ -277,6 +277,7 @@ QJsonObject ModTracker::modInfoToJson(const ModInfo& modInfo) const {
     json["installedAt"] = modInfo.installedAt.toString(Qt::ISODate);
     json["lastActivated"] = modInfo.lastActivated.toString(Qt::ISODate);
     json["isActive"] = modInfo.isActive;
+    json["isVirtual"] = modInfo.isVirtual;
     json["gameSerial"] = modInfo.gameSerial;
 
     QJsonArray filesArray;
@@ -309,6 +310,7 @@ ModInfo ModTracker::modInfoFromJson(const QJsonObject& json) const {
     modInfo.installedAt = QDateTime::fromString(json["installedAt"].toString(), Qt::ISODate);
     modInfo.lastActivated = QDateTime::fromString(json["lastActivated"].toString(), Qt::ISODate);
     modInfo.isActive = json["isActive"].toBool();
+    modInfo.isVirtual = json["isVirtual"].toBool();
     modInfo.gameSerial = json["gameSerial"].toString();
 
     QJsonArray filesArray = json["files"].toArray();

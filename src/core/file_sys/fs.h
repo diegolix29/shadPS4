@@ -67,6 +67,9 @@ public:
                bool read_only = false);
     void Unmount(const std::filesystem::path& host_folder, const std::string& guest_folder);
     void UnmountAll();
+
+    /// Layers mod folders over /app0 and /hostapp. Later folders take priority.
+    void MountMods(const std::vector<std::filesystem::path>& mod_folders);
     inline static std::filesystem::path manual_mods_path;
 
     std::filesystem::path GetHostPath(std::string_view guest_directory,
@@ -128,6 +131,7 @@ public:
 
 private:
     std::vector<MntPair> m_mnt_pairs;
+    std::vector<std::filesystem::path> m_mod_folders;
     std::vector<std::filesystem::path> path_parts;
     tsl::robin_map<std::filesystem::path, std::filesystem::path> path_cache;
     std::mutex m_mutex;

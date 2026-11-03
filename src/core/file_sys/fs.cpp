@@ -141,6 +141,26 @@ void MntPoints::Unmount(const std::filesystem::path& host_folder, const std::str
 void MntPoints::UnmountAll() {
     std::scoped_lock lock{m_mutex};
     m_mnt_pairs.clear();
+    m_mod_folders.clear();
+}
+
+void MntPoints::MountMods(const std::vector<std::filesystem::path>& mod_folders) {
+    std::scoped_lock lock{m_mutex};
+    for (const auto& folder : mod_folders) {
+        if (!std::filesystem::is_directory(folder)) {
+            continue;
+        }
+        m_mod_folders.insert(m_mod_folders.begin(), folder);
+        for (auto& pair : m_mnt_pairs) {
+            if (pair.mount != "/app0" && pair.mount != "/hostapp") {
+                continue;
+            }
+            pair.backends.insert(pair.backends.begin(),
+                                 std::make_shared<HostFsBackend>(folder, /*read_only=*/true));
+        }
+        LOG_INFO(Kernel_Fs, "Mounted mod '{}'", folder.string());
+    }
+    path_cache.clear();
 }
 
 std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_read_only,
@@ -189,8 +209,16 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         mods_path /= rel_path;
     }
 
+    const bool app_mount = mount->mount == "/app0" || mount->mount == "/hostapp";
+
     // Priority: MODS > PATCH/UPDATE > BASE
     if (!force_base_path && !ignore_game_patches) {
+        if (app_mount) {
+            for (const auto& folder : m_mod_folders) {
+                if (std::filesystem::exists(folder / rel_path))
+                    return folder / rel_path;
+            }
+        }
         if (enable_mods && std::filesystem::exists(mods_path))
             return mods_path;
         if (std::filesystem::exists(patch_path))
@@ -251,6 +279,14 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         }
         return std::optional<std::filesystem::path>(current_path);
     };
+
+    if (app_mount && !force_base_path) {
+        for (const auto& folder : m_mod_folders) {
+            if (const auto path = search(folder / rel_path)) {
+                return *path;
+            }
+        }
+    }
 
     if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
         !force_base_path) {
