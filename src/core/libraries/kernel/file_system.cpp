@@ -156,6 +156,7 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             }
             // Create a file if it doesn't exist
             Common::FS::IOFile out(file->m_host_name, Common::FS::FileAccessMode::Create);
+            mnt->InvalidateCache(file->m_guest_name);
         }
     } else if (!exists) {
         // If we're not creating a file, and it doesn't exist, return ENOENT
@@ -611,6 +612,7 @@ s32 PS4_SYSV_ABI posix_mkdir(const char* path, u16 mode) {
         *__Error() = POSIX_ENOENT;
         return -1;
     }
+    mnt->InvalidateCache(path);
     return ORBIS_OK;
 }
 
@@ -655,6 +657,7 @@ s32 PS4_SYSV_ABI posix_rmdir(const char* path) {
         *__Error() = POSIX_EIO;
         return -1;
     }
+    mnt->InvalidateCache(path);
     return ORBIS_OK;
 }
 
@@ -675,15 +678,30 @@ s32 PS4_SYSV_ABI posix_access(const char* path, s32 mode) {
     }
 
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
+    const bool is_root = strncmp(path, "/", 2) == 0;
+    if (is_root) {
+        LOG_WARNING(Kernel_Fs, "Checking accessibility of filesystem root");
+        if (mode & ORBIS_KERNEL_W_OK) {
+            *__Error() = POSIX_EROFS;
+            return -1;
+        }
+        return ORBIS_OK;
+    }
+
     const bool is_dir = mnt->IsDirectory(path);
     const bool is_file = !is_dir && mnt->Exists(path);
-    const bool is_root = strncmp(path, "/", 2) == 0;
-    if (!is_dir && !is_file && !is_root) {
+    if (!is_dir && !is_file) {
         *__Error() = POSIX_ENOENT;
         return -1;
     }
-    if (is_root) {
-        LOG_WARNING(Kernel_Fs, "Checking accessibility of filesystem root");
+
+    if (mode & ORBIS_KERNEL_W_OK) {
+        bool ro = false;
+        mnt->GetHostPath(path, &ro);
+        if (ro) {
+            *__Error() = POSIX_EROFS;
+            return -1;
+        }
     }
     return ORBIS_OK;
 }
@@ -708,6 +726,8 @@ s32 PS4_SYSV_ABI posix_stat(const char* path, OrbisKernelStat* sb) {
     if (is_root) {
         LOG_WARNING(Kernel_Fs, "Attempting to access filesystem root");
         sb->st_mode = 0000777u | 0040000u;
+        sb->st_ino = 2;
+        sb->st_nlink = 2;
         sb->st_size = 65536;
         sb->st_blksize = 65536;
         sb->st_blocks = 128;
@@ -730,7 +750,11 @@ s32 PS4_SYSV_ABI posix_stat(const char* path, OrbisKernelStat* sb) {
         sb->st_blocks = 128;
         sb->st_mtim.tv_sec =
             std::chrono::duration_cast<std::chrono::seconds>(mtimestamp.time_since_epoch()).count();
-        // TODO incomplete
+
+        Core::FileSys::FileStat fst{};
+        if (mnt->Stat(path, fst) && fst.inode != 0) {
+            sb->st_ino = fst.inode;
+        }
     } else {
         sb->st_mode = 0000777u | 0100000u;
         if (auto handle = mnt->Open(path, /*writable=*/false)) {
@@ -952,24 +976,51 @@ s32 PS4_SYSV_ABI posix_rename(const char* from, const char* to) {
         }
     }
 
-    // On Windows, fs::rename will error if the file has been opened before.
-    fs::copy(src_path, dst_path,
-             fs::copy_options::overwrite_existing | fs::copy_options::recursive);
+    std::error_code ec;
     auto* h = Common::Singleton<Core::FileSys::HandleTable>::Instance();
     auto file = h->GetFile(src_path);
+    Common::FS::FileAccessMode access_mode = Common::FS::FileAccessMode::ReadWrite;
+    s64 file_pos = 0;
     if (file) {
-        Common::FS::FileAccessMode access_mode = Common::FS::FileAccessMode::ReadWrite;
         if (auto* host = file->GetHostFile()) {
             access_mode = host->GetAccessMode();
         }
+        file_pos = file->Tell();
         file->handle.reset();
-        fs::remove(src_path);
+    }
+
+    // Try atomic rename first
+    fs::rename(src_path, dst_path, ec);
+    if (ec) {
+        // Fallback to copy + remove if atomic rename failed (e.g. cross-device)
+        ec.clear();
+        fs::copy(src_path, dst_path,
+                 fs::copy_options::overwrite_existing | fs::copy_options::recursive, ec);
+        if (ec) {
+            *__Error() = POSIX_EIO;
+            if (file) {
+                file->handle = mnt->Open(std::string_view(from), access_mode);
+                if (file->handle && file_pos > 0) {
+                    file->Seek(file_pos);
+                }
+            }
+            return -1;
+        }
+        fs::remove_all(src_path, ec);
+    }
+
+    if (file) {
         // Reopen through the mount stack at the destination guest path.
         file->handle = mnt->Open(std::string_view(to), access_mode);
+        if (file->handle && file_pos > 0) {
+            file->Seek(file_pos);
+        }
+        file->m_host_name = dst_path;
         file->m_guest_name = to;
-    } else {
-        fs::remove_all(src_path);
     }
+
+    mnt->InvalidateCache(from);
+    mnt->InvalidateCache(to);
 
     return ORBIS_OK;
 }
@@ -1258,6 +1309,8 @@ s32 PS4_SYSV_ABI posix_unlink(const char* path) {
     } else if (auto* host = file->GetHostFile()) {
         host->Unlink();
     }
+
+    mnt->InvalidateCache(path);
 
     LOG_INFO(Kernel_Fs, "Unlinked {}", path);
     return ORBIS_OK;

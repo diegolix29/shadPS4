@@ -102,6 +102,7 @@ path = [
     "src/images/amd_rsqrt_index_table.bin.zstd",
     "src/shadps4.rc",
 	"src/qt_gui/translations/update_translation.sh",
+    "src/dist/net.shadps4.shadPS4.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "shadPS4 Emulator Project"

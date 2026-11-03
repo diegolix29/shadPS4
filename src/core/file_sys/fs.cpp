@@ -122,6 +122,11 @@ void MntPoints::Mount(const std::filesystem::path& host_folder, const std::strin
     stack.push_back(std::move(base));
 
     m_mnt_pairs.emplace_back(host_folder, guest_folder_sanitized, read_only, std::move(stack));
+    // Keep mounts sorted by prefix length in descending order for longest-prefix matching.
+    std::stable_sort(
+        m_mnt_pairs.begin(), m_mnt_pairs.end(),
+        [](const MntPair& a, const MntPair& b) { return a.mount.size() > b.mount.size(); });
+    LOG_INFO(Kernel_Fs, "Mounted '{}' -> '{}'", guest_folder_sanitized, host_folder.string());
 }
 
 void MntPoints::Unmount(const std::filesystem::path& host_folder, const std::string& guest_folder) {
@@ -443,6 +448,61 @@ bool MntPoints::IsDirectory(std::string_view guest_path) {
     for (const auto& backend : mount->backends) {
         if (backend->Exists(rel)) {
             return backend->IsDirectory(rel);
+        }
+    }
+    return false;
+}
+
+void MntPoints::InvalidateCache(std::string_view guest_path) {
+    if (guest_path.empty()) {
+        {
+            std::scoped_lock lock{m_mutex};
+            path_cache.clear();
+        }
+        for (const auto& mount : m_mnt_pairs) {
+            for (const auto& backend : mount.backends) {
+                backend->InvalidateCache();
+            }
+        }
+        return;
+    }
+    const auto corrected = SanitizeGuestPath(guest_path);
+    if (!corrected) {
+        return;
+    }
+    const std::string& path_str = *corrected;
+    const std::string path_slash = path_str + "/";
+    {
+        std::scoped_lock lock{m_mutex};
+        for (auto it = path_cache.begin(); it != path_cache.end();) {
+            const std::string cached = it->first.generic_string();
+            if (cached == path_str || cached.starts_with(path_slash)) {
+                it = path_cache.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    if (const auto* mount = GetMount(path_str)) {
+        const auto rel = RelativeToMount(path_str, *mount);
+        for (const auto& backend : mount->backends) {
+            backend->InvalidateCache(rel);
+        }
+    }
+}
+bool MntPoints::Stat(std::string_view guest_path, FileStat& out) {
+    const auto corrected = SanitizeGuestPath(guest_path);
+    if (!corrected) {
+        return false;
+    }
+    const auto mount = GetMount(*corrected);
+    if (!mount || mount->backends.empty()) {
+        return false;
+    }
+    const auto rel = RelativeToMount(*corrected, *mount);
+    for (const auto& backend : mount->backends) {
+        if (backend->Exists(rel)) {
+            return backend->Stat(rel, out);
         }
     }
     return false;
