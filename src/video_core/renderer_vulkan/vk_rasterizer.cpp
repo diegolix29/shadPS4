@@ -5,7 +5,6 @@
 
 #include "common/config.h"
 #include "common/debug.h"
-#include "common/elf_info.h"
 #include "common/memory_patcher.h"
 #include "core/debug_state.h"
 #include "core/emulator_settings.h"
@@ -29,18 +28,6 @@
 
 namespace Vulkan {
 
-static bool ShouldDisableSync() {
-    const auto& serial = Common::ElfInfo::Instance().GameSerial();
-    return serial == "CUSA03173" || serial == "CUSA00900" || serial == "CUSA00208" ||
-           serial == "CUSA01363" || serial == "CUSA01322" || serial == "CUSA003027" ||
-           serial == "CUSA00299" || serial == "CUSA00207" || serial == "CUSA03014" ||
-           serial == "CUSA03023" || serial == "CUSA03014" || serial == "CUSA00900" ||
-           serial == "CUSA03388" || serial == "CUSA01589" || serial == "CUSA01760" ||
-           serial == "CUSA07439" || serial == "CUSA07339" || serial == "CUSA08692" ||
-           serial == "CUSA08495" || serial == "CUSA50617" || serial == "CUSA18723" ||
-           serial == "CUSA28863" || serial == "CUSA00093" || serial == "CUSA00003";
-}
-
 static Shader::PushData MakeUserData(const AmdGpu::Regs& regs) {
     // TODO(roamic): Add support for multiple viewports and geometry shaders when ViewportIndex
     // is encountered and implemented in the recompiler.
@@ -57,9 +44,8 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_, Runtime
     : instance{instance_}, scheduler{scheduler_}, runtime{runtime_}, page_manager{this},
       buffer_cache{instance, scheduler, runtime, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, runtime, liverpool_, buffer_cache, page_manager},
-      storage_sync_{scheduler, runtime, buffer_cache, texture_cache},
-      rt_sync_{instance, scheduler, runtime, texture_cache}, liverpool{liverpool_},
-      predication{instance, scheduler, buffer_cache}, memory{Core::Memory::Instance()},
+      liverpool{liverpool_}, predication{instance, scheduler, buffer_cache},
+      memory{Core::Memory::Instance()},
       pipeline_cache{instance, scheduler, liverpool, buffer_cache.GetSparsePageShift()},
       host_markers_enabled{Config::getVkHostMarkersEnabled()},
       guest_markers_enabled{Config::getVkGuestMarkersEnabled()},
@@ -394,11 +380,6 @@ void Rasterizer::DispatchDirect() {
     predication.EndDraw(cmdbuf, std::nullopt, predicated);
     DebugState.IncDispatch();
 
-    if (!ShouldDisableSync()) {
-        for (const auto& storage_image_id : pending_storage_image_ids_) {
-            storage_sync_.Sync(storage_image_id);
-        }
-    }
     ResetBindings(true);
 }
 
@@ -436,11 +417,6 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
     predication.EndDraw(cmdbuf, std::nullopt, predicated);
     DebugState.IncDispatch();
 
-    if (!ShouldDisableSync()) {
-        for (const auto& storage_image_id : pending_storage_image_ids_) {
-            storage_sync_.Sync(storage_image_id);
-        }
-    }
     ResetBindings(true);
 }
 
@@ -472,11 +448,6 @@ void Rasterizer::OnSubmit() {
     buffer_cache.TickFrame();
     texture_cache.ProcessDownloadImages();
 
-    if (!ShouldDisableSync()) {
-        rt_sync_.ClearRecords();
-        storage_sync_.ClearRecords();
-    }
-
     static u64 gc_timer = 0;
     if (++gc_timer > 60) {
         gc_timer = 0;
@@ -501,8 +472,6 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         IsComputeImageClear(pipeline)) {
         return false;
     }
-
-    pending_storage_image_ids_.clear();
 
     set_write_index = 0;
     set_writes.clear();
@@ -957,10 +926,6 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             }
 
             image_id = texture_cache.FindImage(desc);
-            if (!ShouldDisableSync()) {
-                rt_sync_.CopyFromLastRt(desc.info.guest_address, image_id, desc.info.size.width,
-                                        desc.info.size.height);
-            }
             auto* image = &texture_cache.GetImage(image_id);
             if (auto depth_image_id = texture_cache.GetAssociatedDepth(*image)) {
                 // If this image has an associated depth image, it's a stencil attachment.
@@ -1028,13 +993,6 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             }
             image.usage.storage |= is_storage;
             image.usage.texture |= !is_storage;
-
-            if (is_storage) {
-                if (std::find(pending_storage_image_ids_.begin(), pending_storage_image_ids_.end(),
-                              image_id) == pending_storage_image_ids_.end()) {
-                    pending_storage_image_ids_.push_back(image_id);
-                }
-            }
 
             image_infos.emplace_back(VK_NULL_HANDLE, *image_view.image_view,
                                      image.backing->state.layout);
@@ -1113,16 +1071,6 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         texture_cache.UpdateImage(image_id);
         runtime.SetBackingSamples(image, key.color_samples[cb]);
         const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
-        const auto& serial = Common::ElfInfo::Instance().GameSerial();
-        if (!ShouldDisableSync() && serial != "CUSA11227" && serial != "CUSA12982" &&
-            serial != "CUSA00093" && serial != "CUSA00003" && serial != "CUSA01778" &&
-            serial != "CUSA01627") {
-            rt_sync_.RecordRtWrite(desc.info.guest_address, image_id);
-            // 1�1 render target: force download to guest so CPU can read the result
-            if (desc.info.size.width == 1 && desc.info.size.height == 1) {
-                rt_sync_.Schedule1x1Readback(image_id);
-            }
-        }
 
         const auto slice = image_view.info.range.base.layer;
         const auto mip = image_view.info.range.base.level;
@@ -1173,12 +1121,8 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         const auto& image_view = texture_cache.FindDepthTarget(image_id, desc);
         auto& image = texture_cache.GetImage(image_id);
         const auto slice = image_view.info.range.base.layer;
-        // Only clear depth if writes are enabled —PS4 hardware ignores clear when
-        // depth_write_enable is false, otherwise data from a previous pass is lost.
-        const bool is_depth_clear =
-            (ShouldDisableSync() ? true : regs.depth_control.depth_write_enable) &&
-            (regs.depth_render_control.depth_clear_enable ||
-             texture_cache.IsMetaCleared(htile_address, slice));
+        const bool is_depth_clear = regs.depth_render_control.depth_clear_enable ||
+                                    texture_cache.IsMetaCleared(htile_address, slice);
         const bool is_stencil_clear = regs.depth_render_control.stencil_clear_enable;
         texture_cache.TouchMeta(htile_address, slice, false);
         ASSERT(desc.view_info.range.extent.levels == 1 && !image.binding.needs_rebind);

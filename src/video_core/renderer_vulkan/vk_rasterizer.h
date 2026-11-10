@@ -9,8 +9,6 @@
 #include "common/shared_first_mutex.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
-#include "video_core/renderer_vulkan/render_target_sync.h"
-#include "video_core/renderer_vulkan/storage_image_sync.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_predication.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -162,13 +160,6 @@ private:
     VideoCore::PageManager page_manager;
     VideoCore::BufferCache buffer_cache;
     VideoCore::TextureCache texture_cache;
-    StorageImageSync storage_sync_;
-    RenderTargetSync rt_sync_;
-    // All storage images bound by the last BindTextures call. A compute dispatch can bind more
-    // than one storage image (multiple UAVs); every one of them needs its post-dispatch sync,
-    // not just the last one seen while iterating bindings.
-    boost::container::static_vector<VideoCore::ImageId, Shader::NUM_IMAGES>
-        pending_storage_image_ids_;
     AmdGpu::Liverpool* liverpool;
     PredicationManager predication;
     Core::MemoryManager* memory;
