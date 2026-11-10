@@ -158,6 +158,8 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, Voice)                                                                                \
     SUB(Lib, VrTracker)                                                                            \
     SUB(Lib, InvitationDialog)                                                                     \
+    SUB(Lib, GameCustomDataDialog)                                                                 \
+    SUB(Lib, VrServiceDialog)                                                                      \
     SUB(Lib, NpUtility)                                                                            \
     CLS(Frontend)                                                                                  \
     CLS(Render)                                                                                    \

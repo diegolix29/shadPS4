@@ -128,9 +128,6 @@ struct Image {
     ImageView& FindView(const ImageViewInfo& view_info, bool ensure_guest_samples = true);
 
     using Barriers = boost::container::small_vector<vk::ImageMemoryBarrier2, 32>;
-    void GetBarriers(Barriers& out_barriers, vk::ImageLayout dst_layout, vk::AccessFlags2 dst_mask,
-                     vk::PipelineStageFlags2 dst_stage,
-                     std::optional<SubresourceRange> subres_range = {});
 
 public:
     Vulkan::Runtime* runtime;
@@ -158,7 +155,20 @@ public:
         boost::container::small_vector<ImageViewInfo, 4> image_view_infos;
         boost::container::small_vector<ImageViewId, 4> image_view_ids;
         u32 num_samples;
+        bool subrect_valid{};
     };
+    BackingImage& AddBacking(const vk::ImageCreateInfo& create_info, u32 num_samples);
+    ImageView& FindView(const ImageViewInfo& view_info, BackingImage& view_backing);
+    void GetBarriers(Barriers& out_barriers, BackingImage& image_backing,
+                     vk::ImageLayout dst_layout, vk::AccessFlags2 dst_mask,
+                     vk::PipelineStageFlags2 dst_stage,
+                     std::optional<SubresourceRange> subres_range = {});
+    void InvalidateSubrects() {
+        for (auto& image_backing : backing_images) {
+            image_backing.subrect_valid = false;
+        }
+    }
+
     std::deque<BackingImage> backing_images;
     BackingImage* backing{};
     boost::container::static_vector<u64, 16> mip_hashes{};
@@ -178,6 +188,7 @@ public:
     struct {
         u32 is_bound : 1;
         u32 is_target : 1;
+        u32 is_storage : 1;
         u32 needs_rebind : 1;
         u32 force_general : 1;
     } binding{};

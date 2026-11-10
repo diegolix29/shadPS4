@@ -155,6 +155,8 @@ enum class StorageClass {
 struct File {
     std::atomic_bool is_opened{};
     std::atomic<FileType> type{FileType::Regular};
+    std::atomic<u32> ref_count{1};
+    std::atomic<s32> m_flags{0};
     std::filesystem::path m_host_name;
     std::string m_guest_name;
     u64 m_size{};
@@ -218,6 +220,10 @@ public:
     void DeleteHandle(int d);
     std::shared_ptr<File> TakeHandle(int d);
     std::shared_ptr<File> GetFileLease(int d);
+    int DuplicateHandleFrom(int old_fd, int min_fd = 0, bool cloexec = false);
+    int DuplicateHandleTo(int old_fd, int target_fd, bool cloexec = false);
+    s32 GetFdFlags(int d);
+    void SetFdFlags(int d, s32 flags);
     // Returns a raw pointer without extending the file's lifetime: a caller racing close()
     // can observe a dangling pointer. New call sites should prefer GetFileLease; existing
     // ones still need to be migrated.
@@ -232,6 +238,7 @@ public:
 
 private:
     std::vector<std::shared_ptr<File>> m_files;
+    std::vector<s32> m_fd_flags;
     std::mutex m_mutex;
 };
 

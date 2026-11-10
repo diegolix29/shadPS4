@@ -128,6 +128,8 @@ enum class LogClass : u8 {
     Lib_Font,                ///< The libSceFont implementation.
     Lib_FontFt,              ///< The libSceFontFt implementation.
     Lib_InvitationDialog,    ///< The LibSceInvitationDialog implementation.
+    Lib_GameCustomDataDialog, ///< The LibSceGameCustomDataDialog implementation.
+    Lib_VrServiceDialog,     ///< The LibSceVrServiceDialog implementation.
     Lib_NpUtility,           ///< The LibSceNpUtility implementation.
     Frontend,                ///< Emulator UI
     Render,                  ///< Video Core

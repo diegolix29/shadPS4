@@ -654,48 +654,51 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 
-    if (linker->LoadModule(guest_eboot_path) == -1) {
-        LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}", guest_eboot_path);
-        std::quick_exit(0);
-    }
-
-    // DLL mods (user/mods/<mod>/mod.json, e.g. BBSC) go in once the game's code is in memory,
-    // before it runs.
-    Core::DllMods::ApplyEnvironment(id);
-    Core::DllMods::LoadEnabledDlls(id);
-
-    LoadSystemModules(game_info.game_serial);
-
-    mnt->IterateDirectory("/app0/sce_module", [this](const auto& path, const auto is_file) {
-        if (is_file) {
-            LOG_INFO(Loader, "Loading {}", fmt::UTF(path.u8string()));
-            linker->LoadModule(path);
+    std::jthread init_thread{[&, this]() {
+        // Load the module with the linker.
+        if (linker->LoadModule(guest_eboot_path) == -1) {
+            LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}", guest_eboot_path);
+            std::quick_exit(0);
         }
-    });
 
-#ifdef ENABLE_DISCORD_RPC
-    // Discord RPC
-    if (Config::getEnableDiscordRPC()) {
-        auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
-        if (rpc->getRPCEnabled() == false) {
-            rpc->init();
-        }
-        rpc->setStatusPlaying(game_info.title, id);
-    }
-#endif
+        // DLL mods (user/mods/<mod>/mod.json, e.g. BBSC) go in once the game's code is in memory,
+        // before it runs.
+        Core::DllMods::ApplyEnvironment(id);
+        Core::DllMods::LoadEnabledDlls(id);
 
-    if (!id.empty()) {
-        start_time = std::chrono::steady_clock::now();
+        LoadSystemModules(game_info.game_serial);
 
-        play_time_thread = std::jthread([this, id](std::stop_token stop) {
-            while (Common::StoppableTimedWait(stop, std::chrono::seconds(60))) {
-                UpdatePlayTime(id);
-                start_time = std::chrono::steady_clock::now();
+        mnt->IterateDirectory("/app0/sce_module", [this](const auto& path, const auto is_file) {
+            if (is_file) {
+                LOG_INFO(Loader, "Loading {}", fmt::UTF(path.u8string()));
+                linker->LoadModule(path);
             }
         });
-    }
 
-    linker->Execute(args);
+#ifdef ENABLE_DISCORD_RPC
+        // Discord RPC
+        if (Config::getEnableDiscordRPC()) {
+            auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
+            if (rpc->getRPCEnabled() == false) {
+                rpc->init();
+            }
+            rpc->setStatusPlaying(game_info.title, id);
+        }
+#endif
+
+        if (!id.empty()) {
+            start_time = std::chrono::steady_clock::now();
+
+            play_time_thread = std::jthread([this, id](std::stop_token stop) {
+                while (Common::StoppableTimedWait(stop, std::chrono::seconds(60))) {
+                    UpdatePlayTime(id);
+                    start_time = std::chrono::steady_clock::now();
+                }
+            });
+        }
+
+        linker->Execute(args);
+    }};
 
     window->InitTimers();
     while (window->IsOpen()) {
