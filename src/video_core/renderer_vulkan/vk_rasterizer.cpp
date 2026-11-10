@@ -446,16 +446,8 @@ void Rasterizer::Finish() {
 void Rasterizer::OnSubmit() {
     buffer_cache.TickFrame();
     texture_cache.ProcessDownloadImages();
-
-    static u64 gc_timer = 0;
-    if (++gc_timer > 60) {
-        gc_timer = 0;
-        const u64 used_mem = instance.GetDeviceMemoryUsage();
-        const u64 trigger = texture_cache.GetTriggerGcMemory();
-        if (used_mem > trigger) {
-            texture_cache.RunGarbageCollectorAsync();
-        }
-    }
+    texture_cache.RunGarbageCollector();
+    runtime.TickFrame();
 }
 
 void Rasterizer::CommitPendingGpuRanges() {
