@@ -34,7 +34,8 @@ Core::Tcb* TcbCtor(Pthread* thread, int initial) {
     memset(tcb, 0, sizeof(Core::Tcb));
     tcb->tcb_self = tcb;
     tcb->tcb_dtv = dtv_table;
-    tcb->tcb_canary = 0xDEADBEEF54321ABC;
+    // Must stay zero: stack canary reads through fs:[0x28] are patched to a constant 0
+    tcb->tcb_canary = 0;
 
     // Dtv[0] is the generation counter. libkernel puts their number into dtv[1]
     dtv_table[0].counter = linker->GenerationCounter();

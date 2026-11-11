@@ -271,6 +271,33 @@ static void GenerateTcbExclusiveOr(void* /* address */, const ZydisDecodedInstru
 #endif
 }
 
+static bool FilterStackCheck(const ZydisDecodedOperand* operands) {
+    const auto& dst_op = operands[0];
+    const auto& src_op = operands[1];
+
+    // Stack protector canary accesses: 'mov/xor/cmp (64-bit register), fs:[0x28]'.
+    // The guest canary is always zero, so these are inlined instead of using a trampoline.
+    return src_op.type == ZYDIS_OPERAND_TYPE_MEMORY && src_op.mem.segment == ZYDIS_REGISTER_FS &&
+           src_op.mem.base == ZYDIS_REGISTER_NONE && src_op.mem.index == ZYDIS_REGISTER_NONE &&
+           src_op.mem.disp.value == offsetof(Core::Tcb, tcb_canary) &&
+           dst_op.reg.value >= ZYDIS_REGISTER_RAX && dst_op.reg.value <= ZYDIS_REGISTER_R15;
+}
+
+static void GenerateStackCanary(void* /* address */, const ZydisDecodedInstruction&,
+                                const ZydisDecodedOperand* operands, Xbyak::CodeGenerator& c) {
+    c.mov(ZydisToXbyakRegisterOperand(operands[0]), 0);
+}
+
+static void GenerateStackCheck(void* /* address */, const ZydisDecodedInstruction&,
+                               const ZydisDecodedOperand* operands, Xbyak::CodeGenerator& c) {
+    c.xor_(ZydisToXbyakRegisterOperand(operands[0]), 0);
+}
+
+static void GenerateStackCompare(void* /* address */, const ZydisDecodedInstruction&,
+                                 const ZydisDecodedOperand* operands, Xbyak::CodeGenerator& c) {
+    c.cmp(ZydisToXbyakRegisterOperand(operands[0]), 0);
+}
+
 static bool FilterNoSSE4a(const ZydisDecodedOperand*) {
     Cpu cpu;
     return !cpu.has(Cpu::tSSE4a);
@@ -765,9 +792,15 @@ static const std::unordered_map<ZydisMnemonic, std::vector<PatchInfo>> Patches =
 #if !defined(__APPLE__)
     // FS segment patches
     // For most of these, Windows needs a trampoline while other platforms do not.
-    {ZYDIS_MNEMONIC_XOR, {{FilterTcbAccess, GenerateTcbExclusiveOr, need_tcb_trampoline}}},
-    {ZYDIS_MNEMONIC_MOV, {{FilterTcbAccess, GenerateTcbAccess, need_tcb_trampoline}}},
-    {ZYDIS_MNEMONIC_CMP, {{FilterTcbAccess, GenerateTcbCompare, need_tcb_trampoline}}}
+    {ZYDIS_MNEMONIC_XOR,
+     {{FilterStackCheck, GenerateStackCheck, false},
+      {FilterTcbAccess, GenerateTcbExclusiveOr, need_tcb_trampoline}}},
+    {ZYDIS_MNEMONIC_MOV,
+     {{FilterStackCheck, GenerateStackCanary, false},
+      {FilterTcbAccess, GenerateTcbAccess, need_tcb_trampoline}}},
+    {ZYDIS_MNEMONIC_CMP,
+     {{FilterStackCheck, GenerateStackCompare, false},
+      {FilterTcbAccess, GenerateTcbCompare, need_tcb_trampoline}}}
 #endif
 };
 
