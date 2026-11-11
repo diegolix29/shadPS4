@@ -27,14 +27,49 @@ static constexpr std::array LogicalStageToStageBit = {
     vk::ShaderStageFlagBits::eCompute,
 };
 
+namespace {
+
+/// Everything vkCreateGraphicsPipelines reads, kept alive until a worker has compiled it.
+struct GraphicsPipelineCreateState {
+    VertexInputs<vk::VertexInputAttributeDescription> vertex_attributes;
+    VertexInputs<vk::VertexInputBindingDescription> vertex_bindings;
+    VertexInputs<vk::VertexInputBindingDivisorDescriptionEXT> divisors;
+    vk::PipelineVertexInputDivisorStateCreateInfo divisor_state;
+    vk::PipelineVertexInputStateCreateInfo vertex_input_info;
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly;
+    vk::PipelineTessellationStateCreateInfo tessellation_state;
+    vk::PipelineRasterizationStateCreateInfo rasterization;
+    vk::PipelineRasterizationProvokingVertexStateCreateInfoEXT provoking_vertex;
+    vk::PipelineRasterizationDepthClipStateCreateInfoEXT depth_clip;
+    vk::PipelineMultisampleStateCreateInfo multisampling;
+    vk::PipelineViewportDepthClipControlCreateInfoEXT clip_control;
+    vk::PipelineViewportStateCreateInfo viewport_info;
+    boost::container::static_vector<vk::DynamicState, 32> dynamic_states;
+    vk::PipelineDynamicStateCreateInfo dynamic_info;
+    boost::container::static_vector<vk::PipelineShaderStageCreateInfo, MaxShaderStages>
+        shader_stages;
+    vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo subgroup_size_ci;
+    std::array<vk::Format, Shader::IR::NumRenderTargets> color_formats{};
+    std::array<vk::SampleCountFlagBits, AmdGpu::NUM_COLOR_BUFFERS> color_samples{};
+    vk::AttachmentSampleCountInfoAMD mixed_samples;
+    vk::PipelineRenderingCreateInfo pipeline_rendering_ci;
+    std::array<vk::PipelineColorBlendAttachmentState, AmdGpu::NUM_COLOR_BUFFERS> attachments{};
+    vk::PipelineColorBlendStateCreateInfo color_blending;
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_info;
+    vk::GraphicsPipelineCreateInfo pipeline_info;
+};
+
+} // Anonymous namespace
+
 GraphicsPipeline::GraphicsPipeline(
     const Instance& instance, Scheduler& scheduler, DescriptorHeap& desc_heap,
     const Shader::Profile& profile, const GraphicsPipelineKey& key_,
     vk::PipelineCache pipeline_cache, std::span<const Shader::Info*, MaxShaderStages> infos,
     std::span<const Shader::RuntimeInfo, MaxShaderStages> runtime_infos,
     const Shader::Gcn::FetchShaderData* fetch_shader_, std::span<const vk::ShaderModule> modules,
-    SerializationSupport& sdata, bool preloading)
+    SerializationSupport& sdata, bool preloading, PipelineBuildWorkers* workers)
     : Pipeline{instance, scheduler, desc_heap, profile, pipeline_cache}, key{key_} {
+    auto st = std::make_shared<GraphicsPipelineCreateState>();
     if (fetch_shader_) {
         fetch_shader = *fetch_shader_;
     }
@@ -72,53 +107,58 @@ GraphicsPipeline::GraphicsPipeline(
         }
     }
 
-    const vk::PipelineVertexInputDivisorStateCreateInfo divisor_state = {
-        .vertexBindingDivisorCount = static_cast<u32>(sdata.divisors.size()),
-        .pVertexBindingDivisors = sdata.divisors.data(),
+    st->vertex_attributes = sdata.vertex_attributes;
+    st->vertex_bindings = sdata.vertex_bindings;
+    st->divisors = sdata.divisors;
+
+    const auto& divisor_state = st->divisor_state = vk::PipelineVertexInputDivisorStateCreateInfo{
+        .vertexBindingDivisorCount = static_cast<u32>(st->divisors.size()),
+        .pVertexBindingDivisors = st->divisors.data(),
     };
 
-    const vk::PipelineVertexInputStateCreateInfo vertex_input_info = {
-        .pNext = sdata.divisors.empty() ? nullptr : &divisor_state,
-        .vertexBindingDescriptionCount = static_cast<u32>(sdata.vertex_bindings.size()),
-        .pVertexBindingDescriptions = sdata.vertex_bindings.data(),
-        .vertexAttributeDescriptionCount = static_cast<u32>(sdata.vertex_attributes.size()),
-        .pVertexAttributeDescriptions = sdata.vertex_attributes.data(),
+    const auto& vertex_input_info = st->vertex_input_info = vk::PipelineVertexInputStateCreateInfo{
+        .pNext = st->divisors.empty() ? nullptr : &divisor_state,
+        .vertexBindingDescriptionCount = static_cast<u32>(st->vertex_bindings.size()),
+        .pVertexBindingDescriptions = st->vertex_bindings.data(),
+        .vertexAttributeDescriptionCount = static_cast<u32>(st->vertex_attributes.size()),
+        .pVertexAttributeDescriptions = st->vertex_attributes.data(),
     };
 
     const auto topology = LiverpoolToVK::PrimitiveType(key.prim_type);
-    const vk::PipelineInputAssemblyStateCreateInfo input_assembly = {
+    const auto& input_assembly = st->input_assembly = vk::PipelineInputAssemblyStateCreateInfo{
         .topology = topology,
     };
 
     const bool is_rect_list = key.prim_type == AmdGpu::PrimitiveType::RectList;
     const bool is_quad_list = key.prim_type == AmdGpu::PrimitiveType::QuadList;
-    const vk::PipelineTessellationStateCreateInfo tessellation_state = {
-        .patchControlPoints = is_rect_list ? 3U : (is_quad_list ? 4U : key.patch_control_points),
-    };
+    const auto& tessellation_state = st->tessellation_state =
+        vk::PipelineTessellationStateCreateInfo{
+            .patchControlPoints =
+                is_rect_list ? 3U : (is_quad_list ? 4U : key.patch_control_points),
+        };
 
-    vk::StructureChain raster_chain = {
-        vk::PipelineRasterizationStateCreateInfo{
-            .depthClampEnable = key.depth_clamp_enable &&
-                                (!key.depth_clip_enable || instance.IsDepthClipEnableSupported()),
-            .rasterizerDiscardEnable = false,
-            .polygonMode = LiverpoolToVK::PolygonMode(key.polygon_mode),
-            .lineWidth = 1.0f,
-        },
-        vk::PipelineRasterizationProvokingVertexStateCreateInfoEXT{
-            .provokingVertexMode = key.provoking_vtx_last == AmdGpu::ProvokingVtxLast::First
-                                       ? vk::ProvokingVertexModeEXT::eFirstVertex
-                                       : vk::ProvokingVertexModeEXT::eLastVertex,
-        },
-        vk::PipelineRasterizationDepthClipStateCreateInfoEXT{
-            .depthClipEnable = key.depth_clip_enable,
-        },
+    st->rasterization = vk::PipelineRasterizationStateCreateInfo{
+        .depthClampEnable = key.depth_clamp_enable &&
+                            (!key.depth_clip_enable || instance.IsDepthClipEnableSupported()),
+        .rasterizerDiscardEnable = false,
+        .polygonMode = LiverpoolToVK::PolygonMode(key.polygon_mode),
+        .lineWidth = 1.0f,
     };
-
-    if (!instance.IsProvokingVertexSupported()) {
-        raster_chain.unlink<vk::PipelineRasterizationProvokingVertexStateCreateInfoEXT>();
+    st->provoking_vertex = vk::PipelineRasterizationProvokingVertexStateCreateInfoEXT{
+        .provokingVertexMode = key.provoking_vtx_last == AmdGpu::ProvokingVtxLast::First
+                                   ? vk::ProvokingVertexModeEXT::eFirstVertex
+                                   : vk::ProvokingVertexModeEXT::eLastVertex,
+    };
+    st->depth_clip = vk::PipelineRasterizationDepthClipStateCreateInfoEXT{
+        .depthClipEnable = key.depth_clip_enable,
+    };
+    const void** raster_next = &st->rasterization.pNext;
+    if (instance.IsProvokingVertexSupported()) {
+        *raster_next = &st->provoking_vertex;
+        raster_next = &st->provoking_vertex.pNext;
     }
-    if (!instance.IsDepthClipEnableSupported()) {
-        raster_chain.unlink<vk::PipelineRasterizationDepthClipStateCreateInfoEXT>();
+    if (instance.IsDepthClipEnableSupported()) {
+        *raster_next = &st->depth_clip;
     }
 
     if (!preloading) {
@@ -131,16 +171,18 @@ GraphicsPipeline::GraphicsPipeline(
         };
     }
     sdata.multisampling.pSampleMask = &key.sample_mask;
+    st->multisampling = sdata.multisampling;
 
-    const vk::PipelineViewportDepthClipControlCreateInfoEXT clip_control = {
+    const auto& clip_control = st->clip_control = vk::PipelineViewportDepthClipControlCreateInfoEXT{
         .negativeOneToOne = key.clip_space == AmdGpu::ClipSpace::MinusWToW,
     };
 
-    const vk::PipelineViewportStateCreateInfo viewport_info = {
+    const auto& viewport_info = st->viewport_info = vk::PipelineViewportStateCreateInfo{
         .pNext = instance.IsDepthClipControlSupported() ? &clip_control : nullptr,
     };
 
-    boost::container::static_vector<vk::DynamicState, 32> dynamic_states = {
+    auto& dynamic_states = st->dynamic_states;
+    dynamic_states = {
         vk::DynamicState::eViewportWithCount,  vk::DynamicState::eScissorWithCount,
         vk::DynamicState::eBlendConstants,     vk::DynamicState::eDepthTestEnable,
         vk::DynamicState::eDepthWriteEnable,   vk::DynamicState::eDepthCompareOp,
@@ -165,13 +207,12 @@ GraphicsPipeline::GraphicsPipeline(
         dynamic_states.push_back(vk::DynamicState::eVertexInputBindingStride);
     }
 
-    const vk::PipelineDynamicStateCreateInfo dynamic_info = {
+    const auto& dynamic_info = st->dynamic_info = vk::PipelineDynamicStateCreateInfo{
         .dynamicStateCount = static_cast<u32>(dynamic_states.size()),
         .pDynamicStates = dynamic_states.data(),
     };
 
-    boost::container::static_vector<vk::PipelineShaderStageCreateInfo, MaxShaderStages>
-        shader_stages;
+    auto& shader_stages = st->shader_stages;
     auto stage = u32(Shader::SwStage::Vertex);
     if (infos[stage]) {
         shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
@@ -246,9 +287,10 @@ GraphicsPipeline::GraphicsPipeline(
         });
     }
 
-    const vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo subgroup_size_ci = {
-        .requiredSubgroupSize = 64,
-    };
+    const auto& subgroup_size_ci = st->subgroup_size_ci =
+        vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo{
+            .requiredSubgroupSize = 64,
+        };
     for (auto& stage : shader_stages) {
         stage.pNext = instance.IsSubgroupSize64Supported() ? &subgroup_size_ci : nullptr;
     }
@@ -256,7 +298,7 @@ GraphicsPipeline::GraphicsPipeline(
     const auto depth_format =
         instance.GetSupportedFormat(LiverpoolToVK::DepthFormat(key.z_format, key.stencil_format),
                                     vk::FormatFeatureFlagBits2::eDepthStencilAttachment);
-    std::array<vk::Format, Shader::IR::NumRenderTargets> color_formats;
+    auto& color_formats = st->color_formats;
     for (s32 i = 0; i < key.num_color_attachments; ++i) {
         const auto& col_buf = key.color_buffers[i];
         const auto format = LiverpoolToVK::SurfaceFormat(col_buf.data_format, col_buf.num_format);
@@ -271,19 +313,19 @@ GraphicsPipeline::GraphicsPipeline(
         color_formats[i] = color_format;
     }
 
-    std::array<vk::SampleCountFlagBits, AmdGpu::NUM_COLOR_BUFFERS> color_samples;
+    auto& color_samples = st->color_samples;
     std::ranges::transform(key.color_samples, color_samples.begin(), [&instance](u8 num_samples) {
         return num_samples ? LiverpoolToVK::NumSamples(num_samples, instance.GetColorSampleCounts())
                            : vk::SampleCountFlagBits::e1;
     });
-    const vk::AttachmentSampleCountInfoAMD mixed_samples = {
+    const auto& mixed_samples = st->mixed_samples = vk::AttachmentSampleCountInfoAMD{
         .colorAttachmentCount = key.num_color_attachments,
         .pColorAttachmentSamples = color_samples.data(),
         .depthStencilAttachmentSamples =
             LiverpoolToVK::NumSamples(key.depth_samples, instance.GetDepthSampleCounts()),
     };
 
-    const vk::PipelineRenderingCreateInfo pipeline_rendering_ci = {
+    const auto& pipeline_rendering_ci = st->pipeline_rendering_ci = vk::PipelineRenderingCreateInfo{
         .pNext = instance.IsMixedDepthSamplesSupported() ? &mixed_samples : nullptr,
         .colorAttachmentCount = key.num_color_attachments,
         .pColorAttachmentFormats = color_formats.data(),
@@ -295,7 +337,7 @@ GraphicsPipeline::GraphicsPipeline(
                                        : vk::Format::eUndefined,
     };
 
-    std::array<vk::PipelineColorBlendAttachmentState, AmdGpu::NUM_COLOR_BUFFERS> attachments;
+    auto& attachments = st->attachments;
     for (u32 i = 0; i < key.num_color_attachments; i++) {
         const auto& control = key.blend_controls[i];
 
@@ -385,7 +427,7 @@ GraphicsPipeline::GraphicsPipeline(
         }
     }
 
-    const vk::PipelineColorBlendStateCreateInfo color_blending = {
+    const auto& color_blending = st->color_blending = vk::PipelineColorBlendStateCreateInfo{
         .logicOpEnable =
             instance.IsLogicOpSupported() && key.logic_op != AmdGpu::ColorControl::LogicOp::Copy,
         .logicOp = LiverpoolToVK::LogicOp(key.logic_op),
@@ -396,9 +438,9 @@ GraphicsPipeline::GraphicsPipeline(
 
     // Required by spec unless VK_EXT_extended_dynamic_state3 is supported.
     // In practice, we use dynamic state for all of it.
-    constexpr vk::PipelineDepthStencilStateCreateInfo depth_stencil_info = {};
+    const auto& depth_stencil_info = st->depth_stencil_info;
 
-    const vk::GraphicsPipelineCreateInfo pipeline_info = {
+    st->pipeline_info = vk::GraphicsPipelineCreateInfo{
         .pNext = &pipeline_rendering_ci,
         .stageCount = static_cast<u32>(shader_stages.size()),
         .pStages = shader_stages.data(),
@@ -406,8 +448,8 @@ GraphicsPipeline::GraphicsPipeline(
         .pInputAssemblyState = &input_assembly,
         .pTessellationState = &tessellation_state,
         .pViewportState = &viewport_info,
-        .pRasterizationState = &raster_chain.get(),
-        .pMultisampleState = &sdata.multisampling,
+        .pRasterizationState = &st->rasterization,
+        .pMultisampleState = &st->multisampling,
         .pDepthStencilState =
             !instance.IsExtendedDynamicState3Supported() ? &depth_stencil_info : nullptr,
         .pColorBlendState = &color_blending,
@@ -415,15 +457,28 @@ GraphicsPipeline::GraphicsPipeline(
         .layout = *pipeline_layout,
     };
 
-    auto [pipeline_result, pipe] =
-        device.createGraphicsPipelineUnique(pipeline_cache, pipeline_info);
-    ASSERT_MSG(pipeline_result == vk::Result::eSuccess, "Failed to create graphics pipeline: {}",
-               vk::to_string(pipeline_result));
-    pipeline = std::move(pipe);
-    SetObjectName(device, *pipeline, "Graphics Pipeline {}", debug_str);
+    auto compile = [this, st = std::move(st), device, pipeline_cache, debug_str] {
+        auto [pipeline_result, pipe] =
+            device.createGraphicsPipelineUnique(pipeline_cache, st->pipeline_info);
+        ASSERT_MSG(pipeline_result == vk::Result::eSuccess,
+                   "Failed to create graphics pipeline: {}", vk::to_string(pipeline_result));
+        pipeline = std::move(pipe);
+        SetObjectName(device, *pipeline, "Graphics Pipeline {}", debug_str);
+    };
+    if (!workers) {
+        compile();
+        return;
+    }
+    build = std::make_shared<PipelineBuild>(std::move(compile));
+    workers->Submit(build);
 }
 
-GraphicsPipeline::~GraphicsPipeline() = default;
+GraphicsPipeline::~GraphicsPipeline() {
+    if (build) {
+        build->Cancel();
+        build->Wait();
+    }
+}
 
 template <typename Attribute, typename Binding>
 void GraphicsPipeline::GetVertexInputs(

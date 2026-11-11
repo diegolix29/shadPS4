@@ -10,6 +10,7 @@
 #include "video_core/amdgpu/regs_color.h"
 #include "video_core/amdgpu/regs_depth.h"
 #include "video_core/amdgpu/regs_primitive.h"
+#include "video_core/renderer_vulkan/vk_pipeline_build.h"
 #include "video_core/renderer_vulkan/vk_pipeline_common.h"
 
 namespace VideoCore {
@@ -91,8 +92,20 @@ public:
                      std::span<const Shader::RuntimeInfo, MaxShaderStages> runtime_infos,
                      const Shader::Gcn::FetchShaderData* fetch_shader,
                      std::span<const vk::ShaderModule> modules, SerializationSupport& sdata,
-                     bool preloading);
-    ~GraphicsPipeline();
+                     bool preloading, PipelineBuildWorkers* workers = nullptr);
+    ~GraphicsPipeline() override;
+
+    /// False while the driver compile still runs on a worker. Handle() is valid only once true.
+    bool IsBuilt() const noexcept {
+        return !build || build->IsBuilt();
+    }
+
+    /// Compiles it on this thread when no worker has started yet, or waits for the worker.
+    void WaitBuilt() const {
+        if (build) {
+            build->Wait();
+        }
+    }
 
     const Shader::Gcn::FetchShaderData& GetFetchShader() const noexcept {
         return fetch_shader;
@@ -115,6 +128,7 @@ private:
 private:
     GraphicsPipelineKey key;
     Shader::Gcn::FetchShaderData fetch_shader{};
+    std::shared_ptr<PipelineBuild> build;
 };
 
 struct ClipDistanceShaderKey {

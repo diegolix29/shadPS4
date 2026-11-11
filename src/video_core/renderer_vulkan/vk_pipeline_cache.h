@@ -83,7 +83,10 @@ public:
     bool LoadGraphicsPipeline(Serialization::Archive& ar);
     bool LoadPipelineStage(Serialization::Archive& ar, size_t stage);
 
-    const GraphicsPipeline* GetGraphicsPipeline(const DrawIndirectParams params = {});
+    /// Null when the draw should be skipped. With async shader compilation that includes draws
+    /// whose pipeline is still compiling on a worker and that are safe to drop for a frame.
+    const GraphicsPipeline* GetGraphicsPipeline(const DrawIndirectParams params = {},
+                                                bool indirect_draw = false);
 
     const ComputePipeline* GetComputePipeline();
 
@@ -107,6 +110,8 @@ private:
     bool RefreshGraphicsKey();
     bool RefreshGraphicsStages();
     bool RefreshComputeKey();
+    const GraphicsPipeline* ResolvePending(const GraphicsPipeline* pipeline, bool indirect_draw);
+    void WaitPendingBuilds();
 
     void DumpShader(std::span<const u32> code, u64 hash, Shader::HwStage stage, size_t perm_idx,
                     std::string_view ext);
@@ -130,6 +135,8 @@ private:
     vk::UniquePipelineLayout pipeline_layout;
     Shader::Profile profile{};
     Shader::Pools pools;
+    std::unique_ptr<PipelineBuildWorkers> build_workers;
+    u64 skipped_pending_draws{};
     DrawIndirectParams draw_indirect_params{};
     tsl::robin_map<size_t, std::unique_ptr<Program>> program_cache;
     tsl::robin_map<ComputePipelineKey, std::unique_ptr<ComputePipeline>> compute_pipelines;

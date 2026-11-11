@@ -1492,6 +1492,13 @@
 																			</property>
 																		</widget>
 																	</item>
+																	<item>
+																		<widget class="QCheckBox" name="asyncShadersCheckBox">
+																			<property name="text">
+																				<string>Async Shader Compilation</string>
+																			</property>
+																		</widget>
+																	</item>
 																</layout>
 															</item>
 														</layout>

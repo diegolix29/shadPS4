@@ -272,7 +272,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         .vertex_sgpr_offset = vertex_sgpr_offset,
         .instance_sgpr_offset = instance_sgpr_offset,
     };
-    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline(params);
+    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline(params, true);
     if (!pipeline) {
         return;
     }

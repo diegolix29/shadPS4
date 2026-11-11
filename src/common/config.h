@@ -382,6 +382,8 @@ u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();
 u32 getMainWindowGeometryH();
+bool isAsyncShaderCompilation();
+void setAsyncShaderCompilation(bool enable);
 bool isPipelineCacheEnabled();
 void setPipelineCacheEnabled(bool enable);
 const std::vector<std::filesystem::path> getGameDirectories();

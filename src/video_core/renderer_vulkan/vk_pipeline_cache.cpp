@@ -375,17 +375,60 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .fast_shader_math = EmulatorSettings.IsFastShaderMath(),
         .support_bda = instance_.IsBufferDeviceAddressSupported(),
     };
-    WarmUp();
-
     auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique({});
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
+
+    const size_t num_workers = PipelineBuildWorkers::DefaultThreadCount();
+    build_workers = std::make_unique<PipelineBuildWorkers>(num_workers);
+    LOG_INFO(Render_Vulkan, "Pipeline compile workers: {}, async shader compilation: {}",
+             num_workers, Config::isAsyncShaderCompilation());
+
+    WarmUp();
 }
 
-PipelineCache::~PipelineCache() = default;
+PipelineCache::~PipelineCache() {
+    WaitPendingBuilds();
+}
 
-const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectParams params) {
+void PipelineCache::WaitPendingBuilds() {
+    if (build_workers) {
+        build_workers->WaitIdle();
+    }
+}
+
+const GraphicsPipeline* PipelineCache::ResolvePending(const GraphicsPipeline* pipeline,
+                                                      bool indirect_draw) {
+    if (pipeline->IsBuilt()) {
+        return pipeline;
+    }
+    if (!Config::isAsyncShaderCompilation()) {
+        pipeline->WaitBuilt();
+        return pipeline;
+    }
+    // Only draws that are very likely to be redrawn next frame are dropped: geometry that tests
+    // against a bound depth buffer, or non-trivial draws. Fullscreen passes and small blits are
+    // often one-off writes that later work reads, so those wait for their pipeline.
+    const auto& regs = liverpool->regs;
+    const auto& key = pipeline->GetGraphicsKey();
+    const bool depth_tested =
+        key.z_format != AmdGpu::DepthBuffer::ZFormat::Invalid && regs.depth_control.depth_enable;
+    const bool large_draw =
+        !indirect_draw && regs.num_indices > 6 && key.prim_type != AmdGpu::PrimitiveType::RectList;
+    if (!depth_tested && !large_draw) {
+        pipeline->WaitBuilt();
+        return pipeline;
+    }
+    if ((skipped_pending_draws++ & 1023) == 0) {
+        LOG_INFO(Render_Vulkan, "Async shaders: {} draws skipped while their pipeline compiles",
+                 skipped_pending_draws);
+    }
+    return nullptr;
+}
+
+const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectParams params,
+                                                           bool indirect_draw) {
     draw_indirect_params = params;
     if (!RefreshGraphicsKey()) {
         return nullptr;
@@ -398,7 +441,7 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectPar
         GraphicsPipeline::SerializationSupport sdata{};
         it.value() = std::make_unique<GraphicsPipeline>(
             instance, scheduler, desc_heap, profile, graphics_key, *pipeline_cache, infos,
-            runtime_infos, fetch_shader, modules, sdata, false);
+            runtime_infos, fetch_shader, modules, sdata, false, build_workers.get());
 
         RegisterPipelineData(graphics_key, pipeline_hash, sdata);
         ++num_new_pipelines;
@@ -412,7 +455,7 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectPar
             }
         }
     }
-    return it->second.get();
+    return ResolvePending(it->second.get(), indirect_draw);
 }
 
 const ComputePipeline* PipelineCache::GetComputePipeline() {
@@ -792,6 +835,7 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
 
 std::optional<vk::ShaderModule> PipelineCache::ReplaceShader(vk::ShaderModule module,
                                                              std::span<const u32> spv_code) {
+    WaitPendingBuilds();
     std::optional<vk::ShaderModule> new_module{};
     for (const auto& [_, program] : program_cache) {
         for (auto& m : program->modules) {
@@ -848,6 +892,7 @@ void PipelineCache::ReloadAllPatches() {
     }
 
     LOG_INFO(Render_Vulkan, "Checking for shader patches to reload...");
+    WaitPendingBuilds();
 
     size_t patches_reloaded = 0;
 

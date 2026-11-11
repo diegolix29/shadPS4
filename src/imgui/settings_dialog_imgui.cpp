@@ -103,6 +103,7 @@ bool psnSignedInSetting;
 bool connectedNetworkSetting;
 bool pipelineCacheEnabledSetting;
 bool pipelineCacheArchiveSetting;
+bool asyncShaderCompilationSetting;
 int extraDmemSetting;
 int vblankFrequencySetting;
 
@@ -453,6 +454,7 @@ void LoadCategory(SettingsCategory category) {
             AddSettingBool("Enable PS4 Neo Mode", neoModeSetting);
             AddSettingBool("Enable ShadNet", psnSignedInSetting);
             AddSettingBool("Set Network Connected to True", connectedNetworkSetting);
+            AddSettingBool("Async Shader Compilation", asyncShaderCompilationSetting);
             AddSettingBool("Enable Shader Cache", pipelineCacheEnabledSetting);
 
             if (pipelineCacheEnabledSetting) {
@@ -559,6 +561,7 @@ void SaveSettings(std::string profile, bool isGameSpecific) {
     Config::setIsConnectedToNetwork(connectedNetworkSetting);
     Config::setPipelineCacheEnabled(pipelineCacheEnabledSetting);
     Config::setPipelineCacheArchived(pipelineCacheArchiveSetting);
+    Config::setAsyncShaderCompilation(asyncShaderCompilationSetting);
     Config::setExtraDmemInMbytes(extraDmemSetting);
     Config::setVblankFreq(vblankFrequencySetting);
 
@@ -629,6 +632,7 @@ void LoadSettings(std::string profile) {
     connectedNetworkSetting = Config::getIsConnectedToNetwork();
     pipelineCacheEnabledSetting = Config::isPipelineCacheEnabled();
     pipelineCacheArchiveSetting = Config::isPipelineCacheArchived();
+    asyncShaderCompilationSetting = Config::isAsyncShaderCompilation();
     extraDmemSetting = Config::getExtraDmemInMbytes();
     vblankFrequencySetting = Config::vblankFreq();
 }

@@ -497,6 +497,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->useUnifiedInputConfigCheckBox->setChecked(Config::GetUseUnifiedInputConfig());
 
     ui->enableHDRCheckBox->setChecked(Config::allowHDR());
+    ui->asyncShadersCheckBox->setChecked(Config::isAsyncShaderCompilation());
     ui->copyGPUBuffersCheckBox->setChecked(Config::copyGPUCmdBuffers());
     ui->DMACheckBox->setChecked(Config::directMemoryAccess());
     ui->dumpShadersCheckBox->setChecked(Config::dumpShaders());
@@ -784,6 +785,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->cacheCheckBox->setChecked(toml::find<bool>(vk, "pipelineCacheEnable"));
         if (vk.contains("pipelineCacheArchive"))
             ui->cacheArchiveCheckBox->setChecked(toml::find<bool>(vk, "pipelineCacheArchive"));
+        if (vk.contains("asyncShaderCompilation"))
+            ui->asyncShadersCheckBox->setChecked(toml::find<bool>(vk, "asyncShaderCompilation"));
         if (vk.contains("validation"))
             ui->vkValidationCheckBox->setChecked(toml::find<bool>(vk, "validation"));
         if (vk.contains("validation_sync"))
@@ -934,6 +937,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["Vulkan"]["hostMarkers"] = ui->hostMarkersCheckBox->isChecked();
     overrides["Vulkan"]["pipelineCacheEnable"] = ui->cacheCheckBox->isChecked();
     overrides["Vulkan"]["pipelineCacheArchive"] = ui->cacheArchiveCheckBox->isChecked();
+    overrides["Vulkan"]["asyncShaderCompilation"] = ui->asyncShadersCheckBox->isChecked();
     overrides["Vulkan"]["rdocEnable"] = ui->rdocCheckBox->isChecked();
     overrides["Vulkan"]["validation"] = ui->vkValidationCheckBox->isChecked();
     overrides["Vulkan"]["validation_sync"] = ui->vkSyncValidationCheckBox->isChecked();

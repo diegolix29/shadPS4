@@ -113,6 +113,13 @@
 																</widget>
 															</item>
 															<item>
+																<widget class="QCheckBox" name="asyncShadersCheckBox">
+																	<property name="text">
+																		<string>Async Shader Compilation</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
 																<widget class="QCheckBox" name="connectedNetworkCheckBox">
 																	<property name="text">
 																		<string>Connected to Network</string>

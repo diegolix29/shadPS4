@@ -1059,6 +1059,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->chooseHomeTabGroupBox->installEventFilter(this);
         ui->gameSizeCheckBox->installEventFilter(this);
         ui->enableAutoBackupCheckBox->installEventFilter(this);
+        ui->asyncShadersCheckBox->installEventFilter(this);
         ui->presentModeGroupBox->installEventFilter(this);
         ui->heightDivider->installEventFilter(this);
         ui->nullGpuCheckBox->installEventFilter(this);
@@ -1066,6 +1067,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->chooseHomeTabGroupBox->installEventFilter(this);
         ui->gameSizeCheckBox->installEventFilter(this);
         ui->enableAutoBackupCheckBox->installEventFilter(this);
+        ui->asyncShadersCheckBox->installEventFilter(this);
 
         // Paths
         ui->gameFoldersGroupBox->installEventFilter(this);
@@ -1252,6 +1254,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->enableHDRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "allowHDR", false));
     ui->enableAutoBackupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
+    ui->asyncShadersCheckBox->setChecked(
+        toml::find_or<bool>(data, "Vulkan", "asyncShaderCompilation", true));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
@@ -1652,6 +1656,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("Play Title Music:\\nIf a game supports it, enable playing special music when selecting the game in the GUI.");
     } else if (elementName == "enableHDRCheckBox") {
         text = tr("Enable HDR:\\nEnables HDR in games that support it.\\nYour monitor must have support for the BT2020 PQ color space and the RGB10A2 swapchain format.");
+    } else if (elementName == "asyncShadersCheckBox") {
+        text = tr("Async Shader Compilation:\\nCompiles new shaders in the background instead of pausing the game, which removes most stutter the first time a game is played.\\nObjects may be missing for a frame or two until their shader is ready.");
     } else if (elementName == "disableTrophycheckBox") {
         text = tr("Disable Trophy Pop-ups:\\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).");
     } else if (elementName == "enableCompatibilityCheckBox") {
@@ -1831,6 +1837,7 @@ void SettingsDialog::UpdateSettings() {
         ui->app0UnlimitedSequentialReadSpeedCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());
+    Config::setAsyncShaderCompilation(ui->asyncShadersCheckBox->isChecked());
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
     Config::setMicDevice(ui->micComboBox->currentData().toString().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());

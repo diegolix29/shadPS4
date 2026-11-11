@@ -316,6 +316,7 @@ static ConfigEntry<bool> vkGuestMarkers(false);
 static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
 static ConfigEntry<bool> pipelineCacheArchive(true);
+static ConfigEntry<bool> asyncShaderCompilation(true);
 // CPU
 static ConfigEntry<Common::CpuCoreMode> cpuCoreMode(Common::CpuCoreMode::All);
 static std::vector<u32> customCpuCores = {};
@@ -596,6 +597,14 @@ bool isPipelineCacheArchived() {
 
 void setPipelineCacheArchived(bool enable) {
     pipelineCacheArchive.base_value = enable;
+}
+
+bool isAsyncShaderCompilation() {
+    return asyncShaderCompilation.get();
+}
+
+void setAsyncShaderCompilation(bool enable) {
+    asyncShaderCompilation.base_value = enable;
 }
 
 bool isPipelineCacheEnabled() {
@@ -2146,6 +2155,7 @@ static void LoadImpl(const std::filesystem::path& path, bool is_game_specific) {
         rdocEnable.setFromToml(vk, "rdocEnable", is_game_specific);
         pipelineCacheEnable.setFromToml(vk, "pipelineCacheEnable", is_game_specific);
         pipelineCacheArchive.setFromToml(vk, "pipelineCacheArchive", is_game_specific);
+        asyncShaderCompilation.setFromToml(vk, "asyncShaderCompilation", is_game_specific);
     }
     string current_version = {};
 
@@ -2647,6 +2657,8 @@ static void SaveImpl(const std::filesystem::path& path, bool is_game_specific) {
             pipelineCacheEnable.game_specific_value.value_or(pipelineCacheEnable.base_value);
         data["Vulkan"]["pipelineCacheArchive"] =
             pipelineCacheArchive.game_specific_value.value_or(pipelineCacheArchive.base_value);
+        data["Vulkan"]["asyncShaderCompilation"] =
+            asyncShaderCompilation.game_specific_value.value_or(asyncShaderCompilation.base_value);
     } else {
         data["Vulkan"]["gpuId"] = gpuId.base_value;
         data["Vulkan"]["validation"] = vkValidation.base_value;
@@ -2659,6 +2671,7 @@ static void SaveImpl(const std::filesystem::path& path, bool is_game_specific) {
         data["Vulkan"]["rdocEnable"] = rdocEnable.base_value;
         data["Vulkan"]["pipelineCacheEnable"] = pipelineCacheEnable.base_value;
         data["Vulkan"]["pipelineCacheArchive"] = pipelineCacheArchive.base_value;
+        data["Vulkan"]["asyncShaderCompilation"] = asyncShaderCompilation.base_value;
     }
 
     if (is_game_specific) {
@@ -2930,6 +2943,7 @@ void setDefaultValues() {
     rdocEnable = false;
     pipelineCacheEnable = false;
     pipelineCacheArchive = false;
+    asyncShaderCompilation = true;
 
     // Debug
     isDebugDump = false;
