@@ -2428,6 +2428,90 @@
       <source>Audio Device (DS4 speaker)</source>
       <translation>音频设备（DS4 手柄扬声器）</translation>
     </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        Enable this for High Resolution Patches&lt;br/&gt;
+        Can cause issues on other games.&lt;br/&gt;
+        Disable if you can&apos;t boot other games.
+        </source>
+      <translation>
+        &lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+        启用此选项以应用高分辨率补丁&lt;br/&gt;
+        可能导致其他游戏出现问题&lt;br/&gt;
+        如果其他游戏无法启动，请禁用此选项。
+        </translation>
+    </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        Helps inFamous crash on binaryinfo crash,&lt;br/&gt;
+		Driveclub slowdowns,&lt;br/&gt;
+		and COD Ghost boot to main menu and some stages.&lt;br/&gt;		
+        </source>
+      <translation>
+        &lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+        有助于修复 inFamous 的 binaryinfo 崩溃、
+        Driveclub 卡顿、
+        以及 COD Ghost 无法进入主菜单和部分关卡的问题。&lt;br/&gt;
+        </translation>
+    </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        DMA implementation.&lt;br/&gt;
+        Disable this for TLG; disabling helps with random crashes.&lt;br/&gt;
+        </source>
+      <translation>
+        &lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+        DMA 实现，
+        TLG 请禁用此选项，禁用有助于减少随机崩溃。&lt;br/&gt;
+        </translation>
+    </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        Linear Readbacks for Postprocessing, helps TLG.&lt;br/&gt;
+		Disable for Elden Ring.&lt;br/&gt;
+        Disable if you encounter issues.&lt;br/&gt;
+		Enable if you get driver restart on DRIVECLUB.&lt;br/&gt;       
+        </source>
+      <translation>
+        &lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+        用于后处理的线性回读，对 TLG 有帮助
+        Elden Ring 请禁用。
+        如遇到问题请禁用
+        如果 DRIVECLUB 出现驱动程序重启，请启用&lt;br/&gt;
+        </translation>
+    </message>
+    <message>
+      <source>
+&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+Disable – Disable readbacks&lt;br/&gt;
+Unsafe – Old Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+Low – Low readbacks Speed (Most Accurate)&lt;br/&gt;
+Default – Normal Readbacks Speed&lt;br/&gt;
+Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+                </source>
+      <translation>
+&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+Disable – 禁用回读&lt;br/&gt;
+Unsafe – 旧的快速回读速度 - 若 Driveclub 白天赛事亮度显示异常，请重新加载 Event&lt;br/&gt;
+Low – 低回读速度（最精确）&lt;br/&gt;
+Default – 正常回读速度&lt;br/&gt;
+Fast – 快速回读速度 - 若 Driveclub 白天赛事亮度显示异常，请重新加载 Event&lt;br/&gt;
+</translation>
+    </message>
+    <message>
+      <source>
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												额外内存分配，可设置为 1–9999。会为模拟器增加相应数量的内存供其使用，并支持 1440p 以上的分辨率。
+												</translation>
+    </message>
   </context>
   <context>
     <name>TrophyViewer</name>
@@ -3303,6 +3387,103 @@ Please select a new location.</source>
     <message>
       <source>Game Settings</source>
       <translation>游戏设置</translation>
+    </message>
+  </context>
+  <context>
+    <name>GameSpecificDialog</name>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Enable this for High Resolution Patches&lt;br/&gt;
+												Can cause issues on other games.&lt;br/&gt;
+												Disable if you cant boot other games.
+
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												启用此选项以应用高分辨率补丁&lt;br/&gt;
+												可能导致其他游戏出现问题&lt;br/&gt;
+												如果其他游戏无法启动，请禁用此选项。
+												</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Helps inFamous crash on binaryinfo crash,
+												Driveclub slowdowns,
+												and COD Ghost boot to main menu and some stages.&lt;br/&gt;
+
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												有助于修复 inFamous 的 binaryinfo 崩溃、
+												Driveclub 卡顿、
+												以及 COD Ghost 无法进入主菜单和部分关卡的问题。&lt;br/&gt;
+												</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												DMA implementation,
+												Disable this for TLG, disabling help with random crashes.&lt;br/&gt;
+
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												DMA 实现，
+												TLG 请禁用此选项，禁用有助于减少随机崩溃。&lt;br/&gt;
+												</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Linear Readbacks for Postprocessing, helps TLG
+												Disable for Elden Ring.
+												Disable if encounter issues
+												Enable if you get Driver restart on DRIVECLUB&lt;br/&gt;
+
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												用于后处理的线性回读，对 TLG 有帮助
+												Elden Ring 请禁用。
+												如遇到问题请禁用
+												如果 DRIVECLUB 出现驱动程序重启，请启用&lt;br/&gt;
+												</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Disable – Disable readbacks&lt;br/&gt;
+												Unsafe – Old Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+												Low – Low readbacks Speed (Most Accurate)&lt;br/&gt;
+												Default – Normal Readbacks Speed&lt;br/&gt;
+												Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												Disable – 禁用回读&lt;br/&gt;
+												Unsafe – 旧的快速回读速度 - 若 Driveclub 白天赛事亮度显示异常，请重新加载 Event&lt;br/&gt;
+												Low – 低回读速度（最精确）&lt;br/&gt;
+												Default – 正常回读速度&lt;br/&gt;
+												Fast – 快速回读速度 - 若 Driveclub 白天赛事亮度显示异常，请重新加载 Event&lt;br/&gt;
+												</translation>
+    </message>
+    <message>
+      <source>
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
+											</source>
+      <translation>
+												&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;
+												额外内存分配，可设置为 1–9999。会为模拟器增加相应数量的内存供其使用，并支持 1440p 以上的分辨率。
+												</translation>
     </message>
   </context>
 </TS>
